@@ -117,6 +117,7 @@ An AI Agent platform with dynamic skill injection, multi-user session management
 ## Documentation
 
 See `/docs` for detailed design and implementation guides:
+- `mvp_requirements.md` - **MVP requirements priority list (start here!)**
 - `design.md` - Socialistic.ai UI/UX analysis and reference
 - `agent_architecture_analysis.md` - Multi-user isolation strategies
 - `claude_sdk_analysis.md` - Claude Agent SDK issues and alternatives
