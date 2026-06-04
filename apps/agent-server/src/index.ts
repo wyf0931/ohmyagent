@@ -75,12 +75,16 @@ app.post('/api/chat', async (req, res) => {
   try {
     const { message, conversationHistory = [] } = req.body
 
+    console.log('[API] Received chat request:', { message, historyLength: conversationHistory.length })
+
     if (!message) {
       return res.status(400).json({ error: 'Message is required' })
     }
 
     // Process message with Pi Agent (streams events via SSE)
     const result = await processMessage(message, conversationHistory)
+
+    console.log('[API] Message processed, session:', result.sessionId)
 
     res.json({
       role: 'assistant',
@@ -89,7 +93,7 @@ app.post('/api/chat', async (req, res) => {
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    console.error('Chat error:', error)
+    console.error('[API] Chat error:', error)
     res.status(500).json({ error: 'Failed to process message' })
   }
 })

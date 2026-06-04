@@ -9,16 +9,38 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bone: 'var(--bone)',
-        ink: 'var(--ink)',
-        gold: 'var(--gold)',
-        lagoon: 'var(--lagoon)',
-        mist: 'var(--mist)',
-        paper: 'var(--paper)',
+        // Brand & Accent
+        primary: 'var(--color-primary)',
+        'primary-active': 'var(--color-primary-active)',
+        'primary-disabled': 'var(--color-primary-disabled)',
+        'accent-teal': 'var(--color-accent-teal)',
+        'accent-amber': 'var(--color-accent-amber)',
+
+        // Surface
+        canvas: 'var(--color-canvas)',
+        'surface-soft': 'var(--color-surface-soft)',
+        'surface-card': 'var(--color-surface-card)',
+        'surface-dark': 'var(--color-surface-dark)',
+        'surface-dark-elevated': 'var(--color-surface-dark-elevated)',
+        hairline: 'var(--color-hairline)',
+
+        // Text
+        ink: 'var(--color-ink)',
+        body: 'var(--color-body)',
+        muted: 'var(--color-muted)',
+        'muted-soft': 'var(--color-muted-soft)',
+        'on-primary': 'var(--color-on-primary)',
+        'on-dark': 'var(--color-on-dark)',
+
+        // Semantic
+        success: 'var(--color-success)',
+        warning: 'var(--color-warning)',
+        error: 'var(--color-error)',
       },
       fontFamily: {
-        sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-geist-mono)', 'monospace'],
+        display: ['var(--font-display)', 'serif'],
+        body: ['var(--font-body)', 'sans-serif'],
+        mono: ['var(--font-mono)', 'monospace'],
       },
       borderRadius: {
         'card': '12px',

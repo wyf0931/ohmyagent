@@ -3,20 +3,50 @@
 @tailwind utilities;
 
 :root {
-  /* Design tokens from design.md */
-  --bone: #faf9f7;
-  --ink: #1a1a1a;
-  --ink-soft: #6b6b6b;
-  --ink-mute: #a0a0a0;
-  --gold: #d4a574;
-  --gold/10: rgba(212, 165, 116, 0.1);
-  --lagoon: #4a90a4;
-  --lagoon-deep: #2c5a6a;
-  --mist: #e8e8e8;
-  --paper: #ffffff;
+  /* DESIGN.md Tokens */
 
-  --font-geist-sans: 'Geist Sans', system-ui, sans-serif;
-  --font-geist-mono: 'Geist Mono', monospace;
+  /* Brand & Accent */
+  --color-primary: #cc785c;
+  --color-primary-active: #a9583e;
+  --color-primary-disabled: #e6dfd8;
+  --color-accent-teal: #5db8a6;
+  --color-accent-amber: #e8a55a;
+
+  /* Surface */
+  --color-canvas: #faf9f5;
+  --color-surface-soft: #f5f0e8;
+  --color-surface-card: #efe9de;
+  --color-surface-dark: #181715;
+  --color-surface-dark-elevated: #252320;
+  --color-hairline: #e6dfd8;
+
+  /* Text */
+  --color-ink: #141413;
+  --color-body: #3d3d3a;
+  --color-muted: #6c6a64;
+  --color-muted-soft: #8e8b82;
+  --color-on-primary: #ffffff;
+  --color-on-dark: #faf9f5;
+
+  /* Semantic */
+  --color-success: #5db872;
+  --color-warning: #d4a017;
+  --color-error: #c64545;
+
+  /* Typography */
+  --font-display: 'Tiempos Headline', 'Garamond', serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* Dark mode overrides */
+.dark {
+  --color-canvas: #181715;
+  --color-surface-card: #252320;
+  --color-ink: #faf9f5;
+  --color-body: #a09d96;
+  --color-muted: #6c6a64;
+  --color-hairline: #3d3d3a;
 }
 
 * {
@@ -28,12 +58,149 @@ body {
   height: 100%;
   margin: 0;
   padding: 0;
+  overflow: hidden; /* Prevent body scroll, only content area scrolls */
 }
 
 body {
-  font-family: var(--font-geist-sans);
-  background: var(--bone);
-  color: var(--ink);
+  font-family: var(--font-body);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+/* Layout Structure */
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 260px;
+  background: var(--color-surface-card);
+  border-right: 1px solid var(--color-hairline);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease;
+}
+
+.sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.sidebar-footer {
+  padding: 12px;
+  border-top: 1px solid var(--color-hairline);
+}
+
+/* Content Area */
+.content-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-canvas);
+}
+
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.input-area {
+  padding: 16px 24px;
+  border-top: 1px solid var(--color-hairline);
+  background: var(--color-canvas);
+}
+
+/* Scrollbar Styling */
+.messages-container::-webkit-scrollbar,
+.sidebar-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.messages-container::-webkit-scrollbar-track,
+.sidebar-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messages-container::-webkit-scrollbar-thumb,
+.sidebar-content::-webkit-scrollbar-thumb {
+  background: var(--color-hairline);
+  border-radius: 4px;
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover,
+.sidebar-content::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
+}
+
+/* Markdown Table Styling */
+.messages-container table,
+.content-area table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+}
+
+.messages-container th,
+.content-area th {
+  background: var(--color-surface-card);
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 500;
+  border: 1px solid var(--color-hairline);
+}
+
+.messages-container td,
+.content-area td {
+  padding: 8px 12px;
+  border: 1px solid var(--color-hairline);
+}
+
+.messages-container tr:nth-child(even),
+.content-area tr:nth-child(even) {
+  background: var(--color-surface-soft);
+}
+
+/* Markdown Code Block Styling */
+.messages-container pre,
+.content-area pre {
+  background: var(--color-surface-dark);
+  color: var(--color-on-dark);
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.messages-container code,
+.content-area code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.messages-container :not(pre) > code,
+.content-area :not(pre) > code {
+  background: var(--color-surface-card);
+  padding: 2px 6px;
+  border-radius: 3px;
 }
 
 @layer utilities {
