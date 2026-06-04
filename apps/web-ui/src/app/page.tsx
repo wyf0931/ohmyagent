@@ -30,13 +30,24 @@ export default function HomePage() {
 
     setInput('')
 
-    // TODO: Call Agent API
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage.content }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`API responded with ${response.status}`)
+      }
+
+      const data = await response.json()
+
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         sessionId: 'temp',
-        role: 'assistant',
-        content: 'Agent response will be here',
+        role: data.role || 'assistant',
+        content: data.content || 'No response',
         createdAt: new Date(),
       }
 
@@ -45,7 +56,13 @@ export default function HomePage() {
         messages: [...prev.messages, assistantMessage],
         isLoading: false,
       }))
-    }, 1000)
+    } catch (error) {
+      console.error('Failed to send message:', error)
+      setChatState((prev) => ({
+        ...prev,
+        isLoading: false,
+      }))
+    }
   }
 
   return (
