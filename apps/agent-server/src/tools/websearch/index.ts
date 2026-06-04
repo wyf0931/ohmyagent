@@ -13,6 +13,7 @@ import { googleProvider } from './providers/google'
 import { redditProvider } from './providers/reddit'
 import { arxivProvider } from './providers/arxiv'
 import { hnProvider } from './providers/hackernews'
+import { wikipediaProvider } from './providers/wikipedia'
 
 /**
  * Provider registry
@@ -23,6 +24,7 @@ const providers = {
   [SearchProvider.REDDIT]: redditProvider,
   [SearchProvider.ARXIV]: arxivProvider,
   [SearchProvider.HACKERNEWS]: hnProvider,
+  [SearchProvider.WIKIPEDIA]: wikipediaProvider,
 }
 
 /**
@@ -43,17 +45,21 @@ export const webSearchTool: AgentTool = {
   description: `Search the web for information using multiple search providers.
 
 **Available Providers:**
-- baidu: Chinese search engine (default, implemented)
-- google: Global search (placeholder)
-- reddit: Reddit community discussions (placeholder)
-- arxiv: Academic paper search (placeholder)
-- hackernews: Tech news and discussions (placeholder)
+- baidu: Chinese search engine (default, requires QINIU_API_KEY)
+- wikipedia: Wikipedia encyclopedia search (free, no key required)
+- arxiv: Academic paper search on ArXiv (free, no key required)
+- hackernews: HackerNews tech news & discussions (free, no key required)
+- reddit: Reddit community discussions via RSS (free, no key required)
+- google: Global web search (coming soon)
 
 **Usage:**
 - Simple search: websearch(query="your search query")
-- Specify provider: websearch(query="...", provider="baidu")
+- Specify provider: websearch(query="...", provider="wikipedia")
 - Limit results: websearch(query="...", max_results=5)
-- Time filter: websearch(query="...", time_filter="week")
+- Wikipedia language: websearch(query="...", provider="wikipedia", lang="zh")
+- ArXiv category: websearch(query="...", provider="arxiv", category="cs.AI")
+- Reddit subreddit: websearch(query="...", provider="reddit", subreddit="programming")
+- HackerNews time filter: websearch(query="...", provider="hackernews", time_filter="week")
 
 **Returns:** Structured search results with titles, URLs, summaries, and metadata.`,
 
@@ -66,6 +72,7 @@ export const webSearchTool: AgentTool = {
         Type.Literal('reddit'),
         Type.Literal('arxiv'),
         Type.Literal('hackernews'),
+        Type.Literal('wikipedia'),
       ])
     ),
     max_results: Type.Optional(Type.Number({ description: 'Maximum number of results (default: 10, max: 50)' })),
@@ -78,13 +85,16 @@ export const webSearchTool: AgentTool = {
       ])
     ),
     site_filter: Type.Optional(Type.String({ description: 'Limit search to specific sites (comma-separated)' })),
+    subreddit: Type.Optional(Type.String({ description: 'Reddit: subreddit name to search in' })),
+    lang: Type.Optional(Type.String({ description: 'Wikipedia: language code (en, zh, ja, de, etc.)' })),
+    category: Type.Optional(Type.String({ description: 'ArXiv: subject category (cs.AI, cs.CL, math, etc.)' })),
   }),
 
   /**
    * Execute web search
    */
   execute: async (toolCallId, params, signal, onUpdate) => {
-    const { query, provider = 'baidu', max_results = 10, time_filter, site_filter } = params as any
+    const { query, provider = 'baidu', max_results = 10, time_filter, site_filter, subreddit, lang, category } = params as any
 
     try {
       const providerName = provider as SearchProvider
@@ -98,7 +108,7 @@ export const webSearchTool: AgentTool = {
         const available = getAvailableProviders().join(', ')
         throw new Error(
           `Provider ${providerName} is not available. ` +
-          (available ? `Available providers: ${available}` : 'No providers configured. Set QINIU_API_KEY environment variable.')
+          (available ? `Available providers: ${available}` : 'No providers configured.')
         )
       }
 
@@ -109,6 +119,9 @@ export const webSearchTool: AgentTool = {
         provider: providerName,
         timeFilter: time_filter,
         siteFilter: site_filter ? site_filter.split(',').map((s: string) => s.trim()) : undefined,
+        subreddit,
+        lang,
+        category,
       })
 
       // Format results for LLM

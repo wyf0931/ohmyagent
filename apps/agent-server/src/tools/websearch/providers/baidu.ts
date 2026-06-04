@@ -63,7 +63,7 @@ export class BaiduSearchProvider extends BaseSearchProvider {
         )
       }
 
-      const data = await response.json()
+      const data: any = await response.json()
 
       if (!data.success) {
         throw new ProviderError(this.name, data.message || 'Search failed', 'API_ERROR')

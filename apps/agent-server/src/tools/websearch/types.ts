@@ -18,6 +18,7 @@ export enum SearchProvider {
   REDDIT = 'reddit',
   ARXIV = 'arxiv',
   HACKERNEWS = 'hackernews',
+  WIKIPEDIA = 'wikipedia',
 }
 
 /**
@@ -51,6 +52,9 @@ export interface SearchRequest {
   timeFilter?: TimeFilter
   siteFilter?: string[]
   // Provider-specific options
+  subreddit?: string       // Reddit: subreddit name
+  lang?: string            // Wikipedia: language code
+  category?: string        // ArXiv: category filter (e.g., cs.AI)
   options?: Record<string, unknown>
 }
 
@@ -87,7 +91,7 @@ export interface SearchResponse {
  * Provider interface
  * All search providers must implement this interface
  */
-export interface SearchProvider {
+export interface SearchProviderInterface {
   name: SearchProvider
   search(request: SearchRequest): Promise<SearchResponse>
   isAvailable(): boolean
