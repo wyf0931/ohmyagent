@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Design tokens from design.md */
+  --bone: #faf9f7;
+  --ink: #1a1a1a;
+  --ink-soft: #6b6b6b;
+  --ink-mute: #a0a0a0;
+  --gold: #d4a574;
+  --gold/10: rgba(212, 165, 116, 0.1);
+  --lagoon: #4a90a4;
+  --lagoon-deep: #2c5a6a;
+  --mist: #e8e8e8;
+  --paper: #ffffff;
+
+  --font-geist-sans: 'Geist Sans', system-ui, sans-serif;
+  --font-geist-mono: 'Geist Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-geist-sans);
+  background: var(--bone);
+  color: var(--ink);
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

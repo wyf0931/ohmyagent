@@ -1,0 +1,26 @@
+# Railway configuration for OhMyAgent MVP
+
+[build]
+  # Build command for monorepo
+  build_command = "pnpm build"
+
+  # Watch paths for rebuild
+  watch_paths = [
+    "apps/web-ui/**",
+    "apps/agent-server/**",
+    "packages/shared/**"
+  ]
+
+[deploy]
+  # Health check path
+  healthcheck_path = "/health"
+  healthcheck_timeout = 300
+
+  # Restart policy
+  restart_policy_type = "on-failure"
+  restart_policy_max_retries = 3
+
+# Environment variables (set in Railway Dashboard)
+# SUPABASE_URL
+# SUPABASE_ANON_KEY
+# ANTHROPIC_API_KEY
