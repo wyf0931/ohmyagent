@@ -127,31 +127,30 @@ export function resetAgent() {
  */
 export async function processMessage(
   message: string,
+  sessionId?: string,
   newSession: boolean = false
 ): Promise<{ sessionId: string }> {
   if (!agent) {
     throw new Error('Agent not initialized. Call initializeAgent() first.')
   }
 
+  const effectiveSessionId = sessionId || `session_${Date.now()}`
+
   if (newSession) {
     agent.reset()
-    console.log('[PiAgent] New session — agent state cleared')
+    console.log(`[PiAgent] New session ${effectiveSessionId} — agent state cleared`)
   }
 
-  console.log('[PiAgent] Processing message:', message)
+  console.log(`[PiAgent] Processing message for session ${effectiveSessionId}:`, message.substring(0, 100))
 
   try {
-    // Inject current date/time hint
     const now = new Date()
     const timeHint = `\n[Current time: ${now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', weekday: 'long', hour12: false })} CST / ${now.toISOString()}]`
     const fullMessage = message + timeHint
 
-    console.log(`[PiAgent] User message (with time): ${fullMessage.substring(0, 150)}...`)
-
-    // Only send current message — AGENT already has history in _state.messages
     await agent.prompt(fullMessage)
 
-    return { sessionId: `session_${Date.now()}` }
+    return { sessionId: effectiveSessionId }
   } catch (error) {
     console.error('[PiAgent] Error:', error)
     broadcastEvent({
@@ -170,6 +169,30 @@ export function subscribeToEvents(callback: (event: any) => void): () => void {
   return () => {
     eventCallbacks = eventCallbacks.filter(l => l !== callback)
   }
+}
+
+/**
+ * Restore agent state by replaying conversation history.
+ * Resets the agent, then replays each historical message to rebuild _state.messages.
+ */
+export async function restoreSession(
+  messages: Array<{ role: string; content: string }>,
+  sessionId: string
+): Promise<void> {
+  if (!agent) {
+    throw new Error('Agent not initialized. Call initializeAgent() first.')
+  }
+
+  agent.reset()
+  console.log(`[PiAgent] Restoring session ${sessionId} with ${messages.length} messages`)
+
+  for (const msg of messages) {
+    if (msg.role === 'user') {
+      await agent.prompt(msg.content)
+    }
+  }
+
+  console.log(`[PiAgent] Session ${sessionId} restored successfully`)
 }
 
 /**

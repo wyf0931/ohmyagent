@@ -6,7 +6,7 @@ dotenv.config({ override: true })
 import express from 'express'
 import cors from 'cors'
 import type { Message } from '@ohmyagent/shared'
-import { initializeAgent, processMessage, subscribeToEvents, dispose } from './pi-agent'
+import { initializeAgent, processMessage, restoreSession, subscribeToEvents, dispose } from './pi-agent'
 
 const app = express()
 const PORT = process.env.PORT || 4000
@@ -76,16 +76,15 @@ app.get('/api/events', async (req, res) => {
 
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, newSession = false } = req.body
+    const { message, sessionId, newSession = false } = req.body
 
-    console.log('[API] Received chat request:', { message, newSession })
+    console.log('[API] Received chat request:', { message: message?.substring(0, 50), sessionId, newSession })
 
     if (!message) {
       return res.status(400).json({ error: 'Message is required' })
     }
 
-    // Process message with AGENT (agent maintains its own conversation state)
-    const result = await processMessage(message, newSession)
+    const result = await processMessage(message, sessionId, newSession)
 
     console.log('[API] Message processed, session:', result.sessionId)
 
@@ -98,6 +97,29 @@ app.post('/api/chat', async (req, res) => {
   } catch (error) {
     console.error('[API] Chat error:', error)
     res.status(500).json({ error: 'Failed to process message' })
+  }
+})
+
+// ============================================================================
+// Session Restore Endpoint
+// ============================================================================
+
+app.post('/api/chat/restore', async (req, res) => {
+  try {
+    const { messages = [], sessionId } = req.body
+
+    console.log(`[API] Restoring session ${sessionId} with ${messages.length} messages`)
+
+    await restoreSession(messages, sessionId)
+
+    res.json({
+      restored: true,
+      messageCount: messages.length,
+      sessionId,
+    })
+  } catch (error) {
+    console.error('[API] Restore error:', error)
+    res.status(500).json({ error: 'Failed to restore session' })
   }
 })
 
