@@ -1,13 +1,11 @@
 'use client'
 
-import { useRef, useEffect, useState, useCallback } from 'react'
-import { Copy, Check, Loader2, Wrench, ChevronDown, ChevronRight } from 'lucide-react'
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
+import { Copy, Check, Loader2, ChevronDown, ChevronRight } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
-import type { Message } from '@ohmyagent/shared'
 
-// Inline progress step type (was in ProgressTimeline.tsx)
 export type StepStatus = 'pending' | 'running' | 'complete' | 'error'
 export interface ProgressStep {
   id: string
@@ -16,10 +14,20 @@ export interface ProgressStep {
   detail?: string
   status: StepStatus
   timestamp: number
+  toolName?: string
+}
+
+interface ChatMessage {
+  id: string
+  sessionId: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  createdAt: Date
+  steps?: ProgressStep[]
 }
 
 interface ChatAreaProps {
-  messages: Message[]
+  messages: ChatMessage[]
   currentResponse: string
   isLoading: boolean
   input: string
@@ -30,53 +38,129 @@ interface ChatAreaProps {
   isConnected: boolean
 }
 
-// Filter: keep only meaningful steps
-function meaningfulSteps(steps: ProgressStep[]): ProgressStep[] {
-  return steps.filter(s => {
-    if (s.type === 'turn') return false
-    if (s.type === 'thinking' && (s.label === 'Starting' || s.label.startsWith('Turn'))) return false
-    return true
-  })
+// ── Search link parser ──
+
+interface SearchLink {
+  index: number
+  title: string
+  url: string
+  summary: string
 }
 
-function InlineStep({ step }: { step: ProgressStep }) {
+function parseSearchLinks(detail: string): SearchLink[] {
+  const links: SearchLink[] = []
+  const regex = /^(\d+)\.\s+(.+?)\n\s+URL:\s+(https?:\/\/[^\s]+)/gm
+  let match
+  while ((match = regex.exec(detail)) !== null) {
+    const afterUrl = detail.indexOf('\n', match.index + match[0].length)
+    const summaryMatch = detail.substring(afterUrl > 0 ? afterUrl : match.index + match[0].length).match(/^\s*Summary:\s+(.+?)(?=\n\s*\n|\n\d+\.|$)/s)
+    links.push({
+      index: parseInt(match[1]),
+      title: match[2].trim(),
+      url: match[3].trim(),
+      summary: summaryMatch ? summaryMatch[1].trim().substring(0, 150) : '',
+    })
+  }
+  return links
+}
+
+function SearchLinkList({ links }: { links: SearchLink[] }) {
+  return (
+    <div className="mt-1 space-y-0.5">
+      {links.map((link) => (
+        <SearchLinkItem key={link.index} link={link} />
+      ))}
+    </div>
+  )
+}
+
+function SearchLinkItem({ link }: { link: SearchLink }) {
+  const [showFull, setShowFull] = useState(false)
+  const maxLen = 55
+  const truncated = link.title.length > maxLen
+
+  return (
+    <a
+      href={link.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-start gap-1 text-primary hover:text-primary-active hover:underline group/link"
+      title={truncated ? link.title : link.summary || undefined}
+    >
+      <span className="text-muted-soft text-[10px] mt-0.5 flex-shrink-0">{link.index}.</span>
+      <span className="break-all">
+        {truncated && !showFull ? link.title.substring(0, maxLen) : link.title}
+      </span>
+      {truncated && (
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowFull(!showFull) }}
+          className="text-[10px] text-muted hover:text-ink whitespace-nowrap ml-0.5 flex-shrink-0"
+        >
+          {showFull ? 'less' : 'full'}
+        </button>
+      )}
+    </a>
+  )
+}
+
+function ExpandableText({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false)
-  const { type, status } = step
+  const maxChars = 200
+  const needsTruncation = text.length > maxChars
+
+  return (
+    <div className="mt-1">
+      <span className="text-muted-soft break-all">
+        {needsTruncation && !expanded ? text.substring(0, maxChars) + '...' : text}
+      </span>
+      {needsTruncation && (
+        <button onClick={() => setExpanded(!expanded)} className="ml-1 text-primary hover:text-primary-active inline-flex items-center text-[10px]">
+          {expanded ? <><ChevronDown className="w-3 h-3" />less</> : <><ChevronRight className="w-3 h-3" />more</>}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Inline step component ──
+
+function InlineStep({ step }: { step: ProgressStep }) {
+  const { type, status, toolName } = step
+
+  const searchLinks = useMemo(() => {
+    if (type !== 'tool_result' || toolName !== 'websearch' || !step.detail) return null
+    return parseSearchLinks(step.detail)
+  }, [type, toolName, step.detail])
 
   const icon = () => {
     if (status === 'running') return <Loader2 className="w-3.5 h-3.5 animate-spin text-primary flex-shrink-0" />
     if (status === 'error') return <span className="text-error text-xs flex-shrink-0">✗</span>
-    if (type === 'tool_result') return <span className="text-success text-xs flex-shrink-0">✓</span>
-    if (type === 'response') return <span className="text-accent-teal text-xs flex-shrink-0">⬤</span>
-    return <Wrench className="w-3.5 h-3.5 text-muted flex-shrink-0" />
+    if (type === 'tool_result' && status === 'complete') return <span className="text-success text-xs flex-shrink-0">✓</span>
+    return <Loader2 className="w-3.5 h-3.5 text-muted flex-shrink-0" />
   }
 
-  const needsTruncation = step.detail && step.detail.length > 150
-
   return (
-    <div className={`flex items-start gap-2 text-xs py-1.5 px-2 rounded transition-opacity ${
+    <div className={`flex items-start gap-2 text-xs py-1.5 px-2 rounded ${
       status === 'running' ? 'text-ink' : status === 'error' ? 'text-error' : 'text-muted'
     }`}>
       {icon()}
       <div className="min-w-0 flex-1">
-        <span className="font-medium">{step.label}</span>
-        {step.detail && (
-          <span className="ml-1 text-muted-soft">
-            {needsTruncation && !expanded
-              ? step.detail.substring(0, 150) + '...'
-              : step.detail
-            }
-          </span>
-        )}
-        {needsTruncation && (
-          <button onClick={() => setExpanded(!expanded)} className="ml-1 text-primary hover:text-primary-active inline-flex items-center">
-            {expanded ? <><ChevronDown className="w-3 h-3" />less</> : <><ChevronRight className="w-3 h-3" />more</>}
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          <span className="font-medium">{step.label}</span>
+          {!step.detail && !searchLinks && status === 'running' && (
+            <span className="text-muted-soft">...</span>
+          )}
+        </div>
+        {/* WebSearch results: render as clickable link list */}
+        {searchLinks && <SearchLinkList links={searchLinks} />}
+        {/* Other: plain expandable text */}
+        {step.detail && !searchLinks && <ExpandableText text={step.detail} />}
       </div>
     </div>
   )
 }
+
+// ── Main component ──
 
 export default function ChatArea({
   messages,
@@ -105,8 +189,6 @@ export default function ChatArea({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, currentResponse, progressSteps])
 
-  const steps = meaningfulSteps(progressSteps)
-
   return (
     <div className="content-area">
       {showToast && (
@@ -125,13 +207,11 @@ export default function ChatArea({
               <span className="text-3xl">💬</span>
             </div>
             <h2 className="text-xl font-medium text-ink mb-2">Start a conversation</h2>
-            <p className="text-body text-sm">
-              Try: &quot;百度今天股价多少&quot;
-            </p>
+            <p className="text-body text-sm">Try: &quot;百度今天股价多少&quot;</p>
           </div>
         )}
 
-        {/* Messages */}
+        {/* Messages + attached steps */}
         {messages.map((message) => (
           <div key={message.id} className="mb-6 max-w-3xl mx-auto group">
             <div className={`mb-2 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
@@ -139,6 +219,15 @@ export default function ChatArea({
                 {message.role === 'user' ? 'YOU' : 'AGENT'}
               </span>
             </div>
+
+            {/* Steps BEFORE bubble — they happened first */}
+            {message.steps && message.steps.length > 0 && (
+              <div className="mb-3 ml-2 pl-3 border-l-2 border-hairline">
+                {message.steps.map((step) => (
+                  <InlineStep key={step.id} step={step} />
+                ))}
+              </div>
+            )}
 
             <div
               className={`w-full p-4 rounded-lg relative ${
@@ -164,27 +253,26 @@ export default function ChatArea({
                   style={{ bottom: '4px', right: '-60px' }}
                   title="Copy message"
                 >
-                  {copiedId === message.id ? (
-                    <Check className="w-4 h-4 text-success" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
+                  {copiedId === message.id ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
                 </button>
               )}
             </div>
           </div>
         ))}
 
-        {/* Inline progress steps — appear in real-time between messages and response */}
-        {steps.length > 0 && (
-          <div className="mb-3 max-w-3xl mx-auto pl-4 border-l-2 border-hairline">
-            {steps.map((step) => (
+        {/* Live steps — during streaming, before message finalized */}
+        {progressSteps.length > 0 && isLoading && (
+          <div className="mb-3 max-w-3xl mx-auto pl-4 border-l-2 border-primary">
+            <div className="mb-1 text-xs text-muted-soft flex items-center gap-1.5">
+              <Loader2 className="w-3 h-3 animate-spin" /> Processing...
+            </div>
+            {progressSteps.map((step) => (
               <InlineStep key={step.id} step={step} />
             ))}
           </div>
         )}
 
-        {/* Current streaming response */}
+        {/* Streaming response */}
         {currentResponse && (
           <div className="mb-6 max-w-3xl mx-auto">
             <div className="mb-2 text-left">
@@ -198,12 +286,9 @@ export default function ChatArea({
           </div>
         )}
 
-        {/* Loading indicator — only when nothing else is happening */}
-        {isLoading && !currentResponse && steps.length === 0 && (
+        {isLoading && !currentResponse && progressSteps.length === 0 && (
           <div className="text-center py-4">
-            <span className="animate-pulse inline-block text-primary">
-              AGENT is thinking...
-            </span>
+            <span className="animate-pulse inline-block text-primary">AGENT is thinking...</span>
           </div>
         )}
 

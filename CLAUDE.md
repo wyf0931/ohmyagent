@@ -30,7 +30,7 @@ See `docs/mvp_requirements.md` for the prioritized feature list and roadmap.
 apps/
   ├── web-ui/          # Next.js frontend (App Router, Tailwind)
   ├── pool-manager/    # Instance pool management (Express + BullMQ)
-  └── agent-engine/    # AGENT service
+  └── agent-server/    # AGENT service
 packages/
   ├── shared/          # Shared types and utilities
   └── db/              # Database migrations
@@ -144,6 +144,20 @@ All tables use UUID primary keys and RLS. `sessions` and `messages` are MVP scop
 ---
 
 ## Development Workflow
+
+### Branching Strategy
+
+1. **Classify the task** — is it a `feat` (new feature) or `fix` (bug)?
+2. **Create a branch**: `feat/<description>` or `fix/<description>`
+   ```bash
+   git checkout -b feat/pi-agent-streaming
+   git checkout -b fix/deepseek-model-name
+   ```
+3. **Develop on the branch** — all work stays on the feature/fix branch
+4. **Merge only when requested** — do NOT merge to `main` unless explicitly asked
+5. **`main` is protected** — never commit directly to `main`; it's the stable integration target only
+
+### Task Flow
 
 1. **Start with `docs/mvp_requirements.md`** - Prioritized P0/P1/P2 tasks guide all development
 2. **Use MCP tools** - Supabase/Railway MCP for infra operations, not manual dashboard clicks

@@ -1,8 +1,14 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import type { Message, ChatState } from '@ohmyagent/shared'
+import type { Message as BaseMessage, ChatState } from '@ohmyagent/shared'
 import type { ProgressStep } from '@/components/ChatArea'
+
+// Extended message with optional steps (collected during turn processing)
+interface Message extends BaseMessage {
+  steps?: ProgressStep[]
+}
+
 import Navbar from '@/components/Navbar'
 import Sidebar from '@/components/Sidebar'
 import ChatArea from '@/components/ChatArea'
@@ -33,6 +39,7 @@ export default function HomePage() {
 
   const eventSourceRef = useRef<EventSource | null>(null)
   const currentResponseRef = useRef('')
+  const progressStepsRef = useRef<ProgressStep[]>([])
 
   // Apply dark mode class to document
   useEffect(() => {
@@ -42,6 +49,11 @@ export default function HomePage() {
       document.documentElement.classList.remove('dark')
     }
   }, [darkMode])
+
+  // Keep ref in sync with progressSteps state for closure-free access
+  useEffect(() => {
+    progressStepsRef.current = progressSteps
+  }, [progressSteps])
 
   // Connect to SSE stream
   useEffect(() => {
@@ -82,23 +94,10 @@ export default function HomePage() {
 
           case 'turn_start':
             setTurnIndex(data.turnIndex)
-            // Mark any prior running steps as done, then add turn step
-            setProgressSteps((prev) => {
-              const updated = prev.map(s =>
-                s.status === 'running' ? { ...s, status: 'complete' as const } : s
-              )
-              return [
-                ...updated,
-                {
-                  id: `turn-${data.turnIndex}`,
-                  type: 'thinking',
-                  label: `Turn ${data.turnIndex}`,
-                  detail: 'Processing your request...',
-                  status: 'running',
-                  timestamp: Date.now(),
-                },
-              ]
-            })
+            // Mark prior running steps as done — no new step needed
+            setProgressSteps((prev) =>
+              prev.map(s => s.status === 'running' ? { ...s, status: 'complete' as const } : s)
+            )
             break
 
           case 'tool_execution_start': {
@@ -130,6 +129,7 @@ export default function HomePage() {
                 label: `Calling ${data.toolName}`,
                 detail: `${data.toolName}(${argsStr})`,
                 status: 'running',
+                toolName: data.toolName,
                 timestamp: Date.now(),
               },
             ])
@@ -170,15 +170,17 @@ export default function HomePage() {
               })
             )
 
-            // Extract result summary
+            // Extract full result text (for websearch: includes Search Query, Top Results with URLs)
             let resultDetail = ''
             if (data.result) {
               if (typeof data.result === 'string') {
-                resultDetail = data.result.substring(0, 300)
+                resultDetail = data.result
+              } else if (data.result.content && Array.isArray(data.result.content)) {
+                resultDetail = data.result.content.map((c: any) => c.text || '').join('\n')
               } else if (data.result.details) {
                 resultDetail = `Found ${data.result.details.resultCount || '?'} results from ${data.result.details.provider || 'search'}`
               } else {
-                resultDetail = JSON.stringify(data.result).substring(0, 300)
+                resultDetail = JSON.stringify(data.result)
               }
             }
 
@@ -191,19 +193,7 @@ export default function HomePage() {
                 label: `${data.toolName} completed`,
                 detail: data.isError ? `Error: ${resultDetail}` : resultDetail,
                 status: data.isError ? 'error' : 'complete',
-                timestamp: Date.now(),
-              },
-            ])
-
-            // Add thinking step after tool result
-            setProgressSteps((prev) => [
-              ...prev,
-              {
-                id: `thinking-after-${data.toolCallId}`,
-                type: 'thinking',
-                label: 'Thinking',
-                detail: 'Analyzing results...',
-                status: 'running',
+                toolName: data.toolName,
                 timestamp: Date.now(),
               },
             ])
@@ -211,31 +201,23 @@ export default function HomePage() {
           }
 
           case 'message_start':
-            console.log('[Frontend] message_start received')
+            // Only process assistant message starts
+            if (data.message?.role !== 'assistant') break
+            console.log('[Frontend] message_start received (assistant)')
             currentResponseRef.current = ''
             setCurrentResponse('')
-            // Mark thinking steps as complete, add response step
-            setProgressSteps((prev) => {
-              const updated = prev.map((s) =>
-                s.type === 'thinking' && s.status === 'running'
-                  ? { ...s, status: 'complete' as const }
-                  : s
+            // Mark running steps as complete
+            setProgressSteps((prev) =>
+              prev.map((s) =>
+                s.status === 'running' ? { ...s, status: 'complete' as const } : s
               )
-              return [
-                ...updated,
-                {
-                  id: `response-${Date.now()}`,
-                  type: 'response',
-                  label: 'Generating response',
-                  detail: '',
-                  status: 'running',
-                  timestamp: Date.now(),
-                },
-              ]
-            })
+            )
             break
 
           case 'message_update': {
+            // Only process assistant text deltas
+            if (data.message?.role !== 'assistant') break
+
             // Extract content from message_update event
             let newText = ''
             if (data.message?.content) {
@@ -257,41 +239,56 @@ export default function HomePage() {
           }
 
           case 'message_end': {
-            console.log('[Frontend] message_end received')
-            const messageContent = currentResponseRef.current
+            // Only process assistant messages — skip user echo
+            if (data.message?.role !== 'assistant') break
 
-            // Mark response step as complete
-            setProgressSteps((prev) =>
-              prev.map((s) =>
-                s.type === 'response' && s.status === 'running'
-                  ? { ...s, status: 'complete' as const }
-                  : s
-              )
-            )
+            const contentBlocks: any[] = data.message?.content || []
+            const textContent = contentBlocks
+              .filter((c: any) => c.type === 'text')
+              .map((c: any) => c.text)
+              .join('')
+            const hasToolCalls = contentBlocks.some((c: any) => c.type === 'toolCall')
 
-            if (messageContent) {
+            // Ignore empty tool-only messages (no text, just toolCall)
+            if (!textContent && hasToolCalls) {
+              console.log('[Frontend] message_end: tool-only, keeping isLoading=true')
+              break
+            }
+
+            if (textContent) {
+              const isFinal = !hasToolCalls
+              const capturedSteps = isFinal
+                ? progressStepsRef.current
+                    .filter(s => s.type !== 'thinking' || (s.label !== 'Starting'))
+                    .map(s => ({ ...s, status: 'complete' as const }))
+                : undefined
+
+              console.log('[Frontend] message_end: adding message', { isFinal, textLen: textContent.length, steps: capturedSteps?.length })
+
               setChatState((prev) => ({
                 ...prev,
-                isLoading: false,
+                isLoading: !isFinal,
                 messages: [
                   ...prev.messages,
                   {
                     id: (Date.now() + 1).toString(),
                     sessionId: activeSessionId || 'temp',
-                    role: 'assistant',
-                    content: messageContent,
+                    role: 'assistant' as const,
+                    content: textContent,
                     createdAt: new Date(),
+                    steps: capturedSteps?.length ? capturedSteps : undefined,
                   },
                 ],
               }))
-            } else {
-              console.log('[Frontend] No message content found')
-              setChatState((prev) => ({ ...prev, isLoading: false }))
+
+              if (isFinal) {
+                setProgressSteps([])
+                progressStepsRef.current = []
+              }
             }
+
             setCurrentResponse('')
             currentResponseRef.current = ''
-            // Clear inline steps — response is now in the message bubble above
-            setProgressSteps([])
             break
           }
 
