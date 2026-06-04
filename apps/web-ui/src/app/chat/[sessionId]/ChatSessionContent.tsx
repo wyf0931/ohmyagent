@@ -526,6 +526,8 @@ export default function ChatSessionContent({
         setSessionTitle(messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : ''))
         // Update URL without remounting — /chat and /chat/[id] are different routes
         window.history.replaceState(null, '', `/chat/${newSession.id}`)
+        // Refresh sidebar sessions to include the new session
+        fetchSessions()
       } catch (err) {
         console.error('Failed to create session:', err)
         return
@@ -593,7 +595,22 @@ export default function ChatSessionContent({
   }
 
   const handleNewChat = () => {
-    router.push('/chat')
+    // Reset all chat state client-side — no navigation (avoids /chat server redirect)
+    setChatState({ messages: [], isLoading: false })
+    setCurrentResponse('')
+    setProgressSteps([])
+    setTurnIndex(0)
+    setInput('')
+    setSessionTitle('New Chat')
+    setHasRestored(true)
+
+    sessionIdRef.current = ''
+    hasRestoredRef.current = true
+    currentResponseRef.current = ''
+    progressStepsRef.current = []
+    pendingToolCalls.current = new Set()
+
+    window.history.replaceState(null, '', '/chat')
   }
 
   const handleSelectSession = (selectedSessionId: string) => {
