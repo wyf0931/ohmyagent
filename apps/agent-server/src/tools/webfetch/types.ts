@@ -10,9 +10,13 @@
  */
 export interface FetchRequest {
   url: string
-  format?: 'markdown' | 'text' | 'html'
+  format?: 'markdown' | 'text'
   timeout?: number
   maxLength?: number
+  includeComments?: boolean
+  full?: boolean
+  section?: string
+  lang?: string
 }
 
 /**

@@ -6,21 +6,19 @@
  */
 
 import { webSearchTool } from './websearch'
+import { webFetchTool } from './webfetch'
 
 /**
  * Get enabled tools (only implemented ones)
- *
- * Note: Only include tools that are fully implemented to prevent
- * the LLM from calling placeholder tools that will fail.
  */
 export function getEnabledTools() {
   const tools = []
 
-  // WebSearch - Baidu provider is implemented
+  // WebSearch - Multi-provider search (Baidu, Wikipedia, ArXiv, HN, Reddit)
   tools.push(webSearchTool)
 
-  // WebFetch - Not yet implemented
-  // tools.push(webFetchTool)
+  // WebFetch - URL content fetching with specialized providers
+  tools.push(webFetchTool)
 
   return tools
 }
@@ -34,8 +32,8 @@ export function getToolsStatus() {
   return {
     websearch: getWebSearchStatus(),
     webfetch: {
-      available: false,
-      message: 'Not yet implemented'
+      available: true,
+      message: 'Ready — supports Wikipedia, Reddit, ArXiv, HackerNews, and generic URLs',
     }
   }
 }
