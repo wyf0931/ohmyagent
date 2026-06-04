@@ -6,6 +6,23 @@ export interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
   createdAt: Date;
+  toolCalls?: ToolCall[];
+  turns?: Turn[];
+}
+
+export interface ToolCall {
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+  output?: unknown;
+  status: 'pending' | 'complete' | 'error';
+}
+
+export interface Turn {
+  id: string;
+  type: 'user' | 'assistant' | 'tool';
+  content: string;
+  timestamp: string;
 }
 
 export interface Session {
@@ -19,6 +36,8 @@ export interface ChatState {
   messages: Message[];
   isLoading: boolean;
   error?: string;
+  currentToolCall?: ToolCall;
+  agentTurns?: Turn[];
 }
 
 export interface Skill {
