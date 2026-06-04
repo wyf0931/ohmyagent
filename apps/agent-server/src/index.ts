@@ -14,6 +14,16 @@ app.use(express.json())
 // Keep track of SSE clients
 const clients = new Map<string, express.Response>()
 
+// SSE broadcast function
+function broadcastToAllClients(event: any) {
+  const eventData = `data: ${JSON.stringify(event)}\n\n`
+  clients.forEach((res) => {
+    if (res.writable) {
+      res.write(eventData)
+    }
+  })
+}
+
 // ============================================================================
 // Health Check
 // ============================================================================
@@ -40,13 +50,13 @@ app.get('/api/events', async (req, res) => {
   clients.set(clientId, res)
 
   // Send connection established event
-  console.log(`[SSE] Client connected: ${clientId}`)
   res.write(`data: ${JSON.stringify({ type: 'connected', clientId })}\n\n`)
 
   // Subscribe to Pi events
   const unsubscribe = subscribeToEvents((event) => {
     if (res.writable) {
-      res.write(`data: ${JSON.stringify(event)}\n\n`)
+      const eventData = `data: ${JSON.stringify(event)}\n\n`
+      res.write(eventData)
     }
   })
 

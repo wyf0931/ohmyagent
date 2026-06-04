@@ -36,6 +36,7 @@ export default function HomePage() {
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
+        console.log(`[Frontend] Received SSE event:`, data.type, data)
 
         switch (data.type) {
           case 'connected':
@@ -104,14 +105,17 @@ export default function HomePage() {
             break
 
           case 'message_update':
+            console.log(`[Frontend] message_update:`, data)
             if (data.assistantMessageEvent?.type === 'text_delta') {
               const newResponse = currentResponseRef.current + data.assistantMessageEvent.delta
               currentResponseRef.current = newResponse
+              console.log(`[Frontend] Updated response, length:`, newResponse.length)
               setCurrentResponse(newResponse)
             }
             break
 
           case 'message_end':
+            console.log(`[Frontend] message_end, currentResponse length:`, currentResponseRef.current.length)
             setChatState((prev) => ({
               ...prev,
               isLoading: false,
@@ -126,8 +130,8 @@ export default function HomePage() {
                 },
               ],
             }))
-            setCurrentResponse('')
-            currentResponseRef.current = ''
+            // Don't clear currentResponse - let it stay visible
+            // It will be cleared on next user message
             break
 
           case 'agent_end':
@@ -165,6 +169,10 @@ export default function HomePage() {
       ...prev,
       messages: [...prev.messages, userMessage],
     }))
+
+    // Clear previous streaming response
+    setCurrentResponse('')
+    currentResponseRef.current = ''
 
     const messageToSend = input
     setInput('')
@@ -293,7 +301,7 @@ export default function HomePage() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder="Ask Pi Agent something..."
             className="flex-1 px-4 py-3 border border-mist rounded-card focus:outline-none focus:border-lagoon"
             disabled={chatState.isLoading}

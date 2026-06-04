@@ -105,7 +105,6 @@ function createMockSession(options: SessionOptions = {}): MockSession {
   }
 
   function emitEvent(event: any) {
-    console.log(`[MockAgent] Emitting:`, event.type)
     listeners.forEach(listener => listener(event))
     if (options.onEvent) {
       options.onEvent(event)
