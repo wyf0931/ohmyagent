@@ -138,6 +138,7 @@ export default function ChatSessionContent({
   const [sessions, setSessions] = useState<Session[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [restoringSession, setRestoringSession] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
 
   const eventSourceRef = useRef<EventSource | null>(null)
   const currentResponseRef = useRef('')
@@ -575,11 +576,38 @@ export default function ChatSessionContent({
     console.log('Load more sessions')
   }
 
+  const handleDeleteSession = async (targetId: string) => {
+    try {
+      const res = await fetch(`/api/sessions/${targetId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Delete failed')
+
+      setSessions((prev) => prev.filter((s) => s.id !== targetId))
+      triggerToast('Session deleted')
+
+      if (targetId === sessionId) {
+        router.push('/chat')
+      }
+    } catch (err) {
+      console.error('Failed to delete session:', err)
+      triggerToast('Failed to delete session')
+    }
+  }
+
+  const triggerToast = (msg: string) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2500)
+  }
+
   return (
     <div className="app-layout">
       {restoringSession && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-accent-amber/20 text-accent-amber text-center py-1 text-sm">
           Restoring session...
+        </div>
+      )}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-ink text-canvas px-4 py-2 rounded-lg shadow-lg text-sm transition-all">
+          {toast}
         </div>
       )}
       <Navbar
@@ -595,6 +623,7 @@ export default function ChatSessionContent({
             activeSessionId={sessionId}
             onNewChat={handleNewChat}
             onSelectSession={handleSelectSession}
+            onDeleteSession={handleDeleteSession}
             onLoadMore={handleLoadMore}
             hasMore={false}
           />

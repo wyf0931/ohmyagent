@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 
 interface NavbarProps {
@@ -13,7 +12,6 @@ interface NavbarProps {
 export default function Navbar({ darkMode, onDarkModeToggle, userEmail }: NavbarProps) {
   const [language, setLanguage] = useState<'en' | 'zh'>('en')
   const [loggingOut, setLoggingOut] = useState(false)
-  const router = useRouter()
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -29,12 +27,6 @@ export default function Navbar({ darkMode, onDarkModeToggle, userEmail }: Navbar
           <span className="text-on-primary font-bold text-sm">Ω</span>
         </div>
         <h1 className="text-lg font-medium text-ink">OhMyAgent</h1>
-        <button
-          onClick={() => router.push('/chat')}
-          className="ml-2 text-sm text-muted hover:text-ink transition-colors"
-        >
-          + New Chat
-        </button>
       </div>
 
       <div className="flex items-center gap-3">

@@ -37,6 +37,10 @@ test-results/
 .DS_Store
 Thumbs.db
 
+# Screenshots / test artifacts
+screenshots/
+*.png
+
 # Temporary files
 *.tmp
 *.temp
