@@ -1,80 +1,143 @@
+/**
+ * Pi Agent Integration Layer
+ *
+ * Uses Pi Agent's createAgentSession pattern with ExtensionAPI.
+ * Mock implementation follows the correct structure for easy swap to real Pi.
+ */
+
 import type { Message } from '@ohmyagent/shared'
 
-export interface AgentResponse {
-  role: string
-  content: string
-  toolCalls?: ToolCall[]
-  turns?: Turn[]
-  timestamp: string
+// Mock Pi types (these would come from @earendil-works/pi-coding-agent)
+interface MockSession {
+  subscribe: (listener: (event: any) => void) => () => void
+  prompt: (message: string) => Promise<void>
+  dispose: () => void
+  state: {
+    messages: any[]
+  }
 }
 
-export interface ToolCall {
-  id: string
-  name: string
-  input: Record<string, unknown>
-  output?: unknown
-  status: 'pending' | 'complete' | 'error'
+interface SessionOptions {
+  extensions?: Array<(pi: any) => void>
+  onEvent?: (event: any) => void
 }
 
-export interface Turn {
-  id: string
-  type: 'user' | 'assistant' | 'tool'
-  content: string
-  timestamp: string
-}
+let currentSession: MockSession | null = null
+let eventListeners: Array<(event: any) => void> = []
 
-// Mock implementation for now - Pi Agent integration coming soon
-export async function initializeAgent() {
-  console.log('✓ Mock Agent initialized (Pi Agent integration pending)')
-  return null
-}
+// Mock implementation that follows Pi's pattern
+function createMockSession(options: SessionOptions = {}): MockSession {
+  const listeners: Set<(event: any) => void> = new Set()
+  const messages: any[] = []
 
-export async function processMessage(
-  message: string,
-  conversationHistory: Message[] = []
-): Promise<AgentResponse> {
-  // Simulate processing delay
-  await new Promise(resolve => setTimeout(resolve, 1000))
+  // Simulate Pi Agent event flow
+  const simulateAgentRun = async (userMessage: string) => {
+    // turn_start
+    emitEvent({ type: 'turn_start', turnIndex: messages.length / 2, timestamp: Date.now() })
 
-  // Generate mock response with tool calls and turns
-  const mockToolCalls: ToolCall[] = [
-    {
-      id: 'tool_1',
-      name: 'web_search',
-      input: { query: message },
-      output: { results: [`Found information about "${message}"`] },
-      status: 'complete',
-    },
-  ]
+    // message_start
+    emitEvent({
+      type: 'message_start',
+      message: { role: 'assistant', content: '', timestamp: Date.now() },
+    })
 
-  const mockTurns: Turn[] = [
-    {
-      id: 'turn_1',
-      type: 'user',
-      content: message,
-      timestamp: new Date().toISOString(),
-    },
-    {
-      id: 'turn_2',
-      type: 'assistant',
-      content: 'Let me search for that information...',
-      timestamp: new Date().toISOString(),
-    },
-    {
-      id: 'turn_3',
-      type: 'tool',
-      content: 'web_search completed',
-      timestamp: new Date().toISOString(),
-    },
-  ]
+    // tool_execution_start
+    const toolCallId = `tool_${Date.now()}`
+    emitEvent({
+      type: 'tool_execution_start',
+      toolCallId,
+      toolName: 'web_search',
+      args: { query: userMessage },
+    })
+
+    // Simulate delay
+    await sleep(500)
+
+    // tool_execution_update (streaming)
+    emitEvent({
+      type: 'tool_execution_update',
+      toolCallId,
+      toolName: 'web_search',
+      args: { query: userMessage },
+      partialResult: { status: 'Searching...' },
+    })
+
+    await sleep(500)
+
+    // tool_execution_end
+    emitEvent({
+      type: 'tool_execution_end',
+      toolCallId,
+      toolName: 'web_search',
+      result: { results: [`Found info about "${userMessage}"`] },
+      isError: false,
+    })
+
+    // message_update (streaming response)
+    const responseText = generateMockResponse(userMessage)
+    for (const char of responseText) {
+      emitEvent({
+        type: 'message_update',
+        message: { role: 'assistant', content: responseText },
+        assistantMessageEvent: { type: 'text_delta', delta: char },
+      })
+      await sleep(10)
+    }
+
+    // message_end
+    emitEvent({
+      type: 'message_end',
+      message: { role: 'assistant', content: responseText, timestamp: Date.now() },
+    })
+
+    // turn_end
+    emitEvent({
+      type: 'turn_end',
+      turnIndex: messages.length / 2,
+      message: { role: 'assistant', content: responseText },
+    })
+
+    // agent_end (last)
+    emitEvent({ type: 'agent_end', messages: messages.slice() })
+
+    messages.push({ role: 'user', content: userMessage })
+    messages.push({ role: 'assistant', content: responseText })
+  }
+
+  function emitEvent(event: any) {
+    console.log(`[MockAgent] Emitting:`, event.type)
+    listeners.forEach(listener => listener(event))
+    if (options.onEvent) {
+      options.onEvent(event)
+    }
+  }
 
   return {
-    role: 'assistant',
-    content: generateMockResponse(message),
-    toolCalls: mockToolCalls,
-    turns: mockTurns,
-    timestamp: new Date().toISOString(),
+    subscribe(listener: (event: any) => void) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+
+    async prompt(message: string) {
+      emitEvent({ type: 'agent_start' })
+      await simulateAgentRun(message)
+      emitEvent({ type: 'agent_end', messages: messages.slice() })
+    },
+
+    dispose() {
+      listeners.clear()
+    },
+
+    state: {
+      get messages() {
+        return messages.slice()
+      },
+    },
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 function generateMockResponse(message: string): string {
@@ -86,5 +149,69 @@ function generateMockResponse(message: string): string {
     return `Here's a sample todo list:\n\n- [x] Implement UI layer\n- [x] Add Markdown support\n- [x] Display tool calls\n- [ ] Integrate real Pi Agent\n- [ ] Add skill support`
   }
 
-  return `I received your message: "**${message}**"\n\nI'm currently running in **mock mode** with simulated tool calls and turns. The real Pi Agent integration will be added soon.\n\n**Current capabilities:**\n- ✅ Tool call display\n- ✅ Turn information\n- ✅ Markdown rendering\n- ✅ Clean UI layout`
+  return `I received your message: "**${message}**"\n\nI'm running in **mock mode** that follows Pi Agent's event pattern:\n- ✅ tool_execution_start/update/end events\n- ✅ message_start/update/end events\n- ✅ turn_start/end events\n- ✅ Streaming response support\n\nThe real Pi Agent will replace the mock createMockSession with createAgentSession from @earendil-works/pi-coding-agent.`
 }
+
+// ============================================================================
+// Public API
+// ============================================================================
+
+export async function initializeAgent() {
+  console.log('✓ Mock Agent initialized (Pi Agent pattern)')
+  return null
+}
+
+export async function processMessage(
+  message: string,
+  _conversationHistory: Message[] = []
+): Promise<{ sessionId: string }> {
+  // Create new session for each message (simplified)
+  if (currentSession) {
+    currentSession.dispose()
+  }
+
+  currentSession = createMockSession({
+    onEvent: (event) => {
+      eventListeners.forEach(listener => listener(event))
+    },
+  })
+
+  await currentSession.prompt(message)
+
+  return { sessionId: `session_${Date.now()}` }
+}
+
+export function subscribeToEvents(callback: (event: any) => void): () => void {
+  eventListeners.push(callback)
+  return () => {
+    eventListeners = eventListeners.filter(l => l !== callback)
+  }
+}
+
+export function dispose() {
+  if (currentSession) {
+    currentSession.dispose()
+    currentSession = null
+  }
+  eventListeners = []
+}
+
+// TODO: Replace with real Pi Agent
+// import { createAgentSession } from '@earendil-works/pi-coding-agent'
+// import ohMyAgentExtension from './pi-extension'
+//
+// export async function processMessage(message: string) {
+//   const { session } = await createAgentSession({
+//     extensionFactories: [ohMyAgentExtension],
+//   })
+//
+//   const events: any[] = []
+//   session.subscribe((event) => {
+//     events.push(event)
+//   })
+//
+//   await session.prompt(message)
+//   session.dispose()
+//
+//   return { events }
+// }

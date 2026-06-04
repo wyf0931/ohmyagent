@@ -1,4 +1,5 @@
 // Shared types for OhMyAgent
+// Aligned with Pi Agent event structure
 
 export interface Message {
   id: string;
@@ -6,23 +7,6 @@ export interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
   createdAt: Date;
-  toolCalls?: ToolCall[];
-  turns?: Turn[];
-}
-
-export interface ToolCall {
-  id: string;
-  name: string;
-  input: Record<string, unknown>;
-  output?: unknown;
-  status: 'pending' | 'complete' | 'error';
-}
-
-export interface Turn {
-  id: string;
-  type: 'user' | 'assistant' | 'tool';
-  content: string;
-  timestamp: string;
 }
 
 export interface Session {
@@ -36,12 +20,129 @@ export interface ChatState {
   messages: Message[];
   isLoading: boolean;
   error?: string;
-  currentToolCall?: ToolCall;
-  agentTurns?: Turn[];
 }
 
 export interface Skill {
   name: string;
   description: string;
   content: string;
+}
+
+// ============================================================================
+// Pi Agent Event Types (mapped from @earendil-works/pi-coding-agent)
+// ============================================================================
+
+export type AgentEvent =
+  | MessageStartEvent
+  | MessageUpdateEvent
+  | MessageEndEvent
+  | ToolExecutionStartEvent
+  | ToolExecutionUpdateEvent
+  | ToolExecutionEndEvent
+  | TurnStartEvent
+  | TurnEndEvent
+  | AgentStartEvent
+  | AgentEndEvent;
+
+export interface MessageStartEvent {
+  type: 'message_start';
+  message: any; // Pi's AgentMessage
+}
+
+export interface MessageUpdateEvent {
+  type: 'message_update';
+  message: any;
+  assistantMessageEvent: any;
+}
+
+export interface MessageEndEvent {
+  type: 'message_end';
+  message: any;
+}
+
+export interface ToolExecutionStartEvent {
+  type: 'tool_execution_start';
+  toolCallId: string;
+  toolName: string;
+  args: any;
+}
+
+export interface ToolExecutionUpdateEvent {
+  type: 'tool_execution_update';
+  toolCallId: string;
+  toolName: string;
+  args: any;
+  partialResult: any;
+}
+
+export interface ToolExecutionEndEvent {
+  type: 'tool_execution_end';
+  toolCallId: string;
+  toolName: string;
+  result: any;
+  isError: boolean;
+}
+
+export interface TurnStartEvent {
+  type: 'turn_start';
+  turnIndex: number;
+  timestamp: number;
+}
+
+export interface TurnEndEvent {
+  type: 'turn_end';
+  turnIndex: number;
+  message: any;
+}
+
+export interface AgentStartEvent {
+  type: 'agent_start';
+}
+
+export interface AgentEndEvent {
+  type: 'agent_end';
+  messages: any[];
+}
+
+// ============================================================================
+// UI Event Types (for frontend consumption)
+// ============================================================================
+
+export interface UIEvent {
+  type: 'tool_start' | 'tool_update' | 'tool_end' | 'message_delta' | 'message_end' | 'turn_start' | 'turn_end';
+  data: any;
+  timestamp: number;
+}
+
+export interface ToolStartUIEvent {
+  type: 'tool_start';
+  toolCallId: string;
+  toolName: string;
+  args: any;
+}
+
+export interface ToolUpdateUIEvent {
+  type: 'tool_update';
+  toolCallId: string;
+  toolName: string;
+  partialOutput: string;
+}
+
+export interface ToolEndUIEvent {
+  type: 'tool_end';
+  toolCallId: string;
+  toolName: string;
+  result: any;
+  isError: boolean;
+}
+
+export interface MessageDeltaUIEvent {
+  type: 'message_delta';
+  delta: string;
+  fullMessage: string;
+}
+
+export interface MessageEndUIEvent {
+  type: 'message_end';
+  message: any;
 }
