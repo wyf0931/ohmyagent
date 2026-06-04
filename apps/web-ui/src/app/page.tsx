@@ -44,13 +44,16 @@ export default function HomePage() {
 
   // Connect to SSE stream
   useEffect(() => {
+    console.log('[Frontend] Connecting to SSE stream...')
     const eventSource = new EventSource('http://localhost:4000/api/events')
 
     eventSource.onopen = () => {
+      console.log('[Frontend] SSE connection opened')
       setIsConnected(true)
     }
 
-    eventSource.onerror = () => {
+    eventSource.onerror = (error) => {
+      console.log('[Frontend] SSE connection error:', error)
       setIsConnected(false)
     }
 
@@ -132,9 +135,19 @@ export default function HomePage() {
             break
 
           case 'message_update':
-            console.log('[Frontend] message_update received:', data)
-            if (data.assistantMessageEvent?.type === 'text_delta') {
-              const newResponse = currentResponseRef.current + data.assistantMessageEvent.delta
+            console.log('[Frontend] message_update received:', JSON.stringify(data).slice(0, 300))
+            // Try to extract content from various possible formats
+            let deltaText = ''
+            if (data.assistantMessageEvent?.type === 'text_delta' && data.assistantMessageEvent.delta) {
+              deltaText = data.assistantMessageEvent.delta
+            } else if (data.message?.content) {
+              deltaText = data.message.content
+            } else if (typeof data === 'string') {
+              deltaText = data
+            }
+
+            if (deltaText) {
+              const newResponse = currentResponseRef.current + deltaText
               currentResponseRef.current = newResponse
               setCurrentResponse(newResponse)
               console.log('[Frontend] Updated currentResponse, length:', newResponse.length)
@@ -142,10 +155,25 @@ export default function HomePage() {
             break
 
           case 'message_end':
-            console.log('[Frontend] message_end received, currentResponse length:', currentResponseRef.current.length)
-            // Only add message if there's actual content
-            // This prevents empty message blocks when Pi Agent triggers message_end without generating text
-            if (currentResponseRef.current.length > 0) {
+            console.log('[Frontend] message_end received:', JSON.stringify(data).slice(0, 300))
+            console.log('[Frontend] currentResponse length:', currentResponseRef.current.length)
+
+            // Extract message content from Pi Agent format: content: [{ type: 'text', text: '...' }]
+            let messageContent = currentResponseRef.current
+            if (data.message?.content) {
+              if (typeof data.message.content === 'string') {
+                messageContent = data.message.content
+              } else if (Array.isArray(data.message.content)) {
+                // Pi Agent format: content is an array of content blocks
+                messageContent = data.message.content
+                  .filter((c: any) => c.type === 'text')
+                  .map((c: any) => c.text)
+                  .join('')
+              }
+            }
+
+            // Add message if there's any content
+            if (messageContent) {
               setChatState((prev) => ({
                 ...prev,
                 isLoading: false,
@@ -155,13 +183,13 @@ export default function HomePage() {
                     id: (Date.now() + 1).toString(),
                     sessionId: activeSessionId || 'temp',
                     role: 'assistant',
-                    content: currentResponseRef.current,
+                    content: messageContent,
                     createdAt: new Date(),
                   },
                 ],
               }))
             } else {
-              console.log('[Frontend] Skipping empty message')
+              console.log('[Frontend] No message content found')
               setChatState((prev) => ({ ...prev, isLoading: false }))
             }
             // Clear currentResponse to prevent duplicate display
@@ -169,9 +197,27 @@ export default function HomePage() {
             currentResponseRef.current = ''
             break
 
+          case 'message_start':
+            console.log('[Frontend] message_start received:', JSON.stringify(data).slice(0, 300))
+            // Initialize current response for this message
+            if (data.message?.content) {
+              currentResponseRef.current = data.message.content
+              setCurrentResponse(data.message.content)
+            }
+            break
+
+          case 'turn_end':
+            console.log('[Frontend] turn_end received')
+            break
+
           case 'agent_end':
             console.log('[Frontend] agent_end received')
             setChatState((prev) => ({ ...prev, isLoading: false }))
+            break
+
+          default:
+            // Log any unknown event types for debugging
+            console.log('[Frontend] Unknown event type:', data.type, JSON.stringify(data).slice(0, 200))
             break
         }
       } catch (error) {
@@ -182,6 +228,7 @@ export default function HomePage() {
     eventSourceRef.current = eventSource
 
     return () => {
+      console.log('[Frontend] Closing SSE connection')
       eventSource.close()
       eventSourceRef.current = null
     }

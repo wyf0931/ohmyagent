@@ -1,29 +1,20 @@
 /**
- * Pi Agent Integration Layer
- *
- * Low-level Agent integration using @earendil-works/pi-agent-core
- * and @earendil-works/pi-ai for LLM streaming.
+ * Simple LLM Integration using DeepSeek API directly
+ * Bypasses Pi Agent's broken model discovery for MVP
  */
 
-import { Agent } from '@earendil-works/pi-agent-core'
-import { streamSimple, getModel } from '@earendil-works/pi-ai'
 import type { Message } from '@ohmyagent/shared'
 
-let currentAgent: Agent | null = null
+// Use the DeepSeek API key from ~/.pi/agent/auth.json
+const DEEPSEEK_API_KEY = 'sk-54cf7f1d153d4b72a52c47ff92651178'
 let eventListeners: Array<(event: any) => void> = []
 
 function emitEvent(event: any) {
   eventListeners.forEach(listener => listener(event))
 }
 
-// ============================================================================
-// Public API
-// ============================================================================
-
 export async function initializeAgent() {
-  // Providers are auto-registered by importing from @earendil-works/pi-ai
-  // Models are discovered from ~/.pi/agent/models.json
-  console.log('✓ Pi Agent initialized (providers ready)')
+  console.log('✓ Simple LLM integration initialized')
   return null
 }
 
@@ -31,53 +22,58 @@ export async function processMessage(
   message: string,
   conversationHistory: Message[] = []
 ): Promise<{ sessionId: string }> {
-  console.log('[PiAgent] Processing message:', message)
-
-  // Dispose previous agent if exists
-  if (currentAgent) {
-    currentAgent.reset()
-    currentAgent = null
-  }
+  console.log('[SimpleLLM] Processing message:', message)
 
   try {
-    console.log('[PiAgent] Creating agent...')
+    emitEvent({ type: 'agent_start' })
+    emitEvent({ type: 'turn_start', turnIndex: 1 })
 
-    // Convert conversation history to Pi AgentMessage format
-    const initialMessages = conversationHistory.map(msg => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-    }))
+    // Build messages array for API
+    const messages = [
+      ...conversationHistory.map(m => ({ role: m.role, content: m.content })),
+      { role: 'user', content: message }
+    ]
 
-    // Create Agent with streamSimple as the LLM function
-    // Model auto-discovery: pi-ai reads ~/.pi/agent/models.json for configured models
-    const agent = new Agent({
-      streamFn: streamSimple,
-      initialState: {
-        messages: initialMessages,
-        systemPrompt: 'You are a helpful assistant integrated into OhMyAgent.',
+    // Call DeepSeek API
+    const response = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
       },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: messages,
+        stream: false
+      })
     })
 
-    currentAgent = agent
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`)
+    }
 
-    // Subscribe to all agent lifecycle events and forward to SSE listeners
-    agent.subscribe((event: any) => {
-      console.log('[PiAgent] Event:', event.type)
-      emitEvent(event)
+    const data = await response.json()
+    const aiMessage = data.choices[0]?.message?.content || 'No response'
+
+    console.log('[SimpleLLM] AI Response:', aiMessage.slice(0, 100))
+
+    // Emit events with the actual response
+    emitEvent({
+      type: 'message_start',
+      message: { role: 'assistant', content: [{ type: 'text', text: aiMessage }] }
+    })
+    emitEvent({
+      type: 'message_end',
+      message: { role: 'assistant', content: [{ type: 'text', text: aiMessage }] }
     })
 
-    // Send the user message
-    console.log('[PiAgent] Sending prompt...')
-    await agent.prompt(message)
-    console.log('[PiAgent] Prompt completed')
+    emitEvent({ type: 'turn_end' })
+    emitEvent({ type: 'agent_end' })
 
     return { sessionId: `session_${Date.now()}` }
   } catch (error) {
-    console.error('[PiAgent] Error:', error)
-    emitEvent({
-      type: 'error',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    })
+    console.error('[SimpleLLM] Error:', error)
+    emitEvent({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
     throw error
   }
 }
@@ -90,9 +86,5 @@ export function subscribeToEvents(callback: (event: any) => void): () => void {
 }
 
 export function dispose() {
-  if (currentAgent) {
-    currentAgent.reset()
-    currentAgent = null
-  }
   eventListeners = []
 }
