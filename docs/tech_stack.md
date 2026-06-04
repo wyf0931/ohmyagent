@@ -21,7 +21,7 @@
 ---
 
 ### Agent 引擎层 ⭐
-- **核心框架**: **Pi Agent Framework** (`@earendil-works/pi-agent-core`)
+- **核心框架**: **AGENT Framework** (`@earendil-works/pi-agent-core`)
 - **Subagent**: **nicobailon/pi-subagents**
 - **备选**: tintinweb/pi-subagents (Claude Code 风格)
 - **技能系统**: Agent Skills 标准
@@ -278,7 +278,7 @@ railway domains                 # 查看域名
 3. **实现核心功能**
    - InstancePoolManager
    - SessionRouter
-   - Pi Agent 集成
+   - AGENT 集成
 
 4. **测试与部署**
    - 本地测试

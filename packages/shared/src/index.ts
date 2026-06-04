@@ -1,5 +1,5 @@
 // Shared types for OhMyAgent
-// Aligned with Pi Agent event structure
+// Aligned with AGENT event structure
 
 export interface Message {
   id: string;
@@ -29,7 +29,7 @@ export interface Skill {
 }
 
 // ============================================================================
-// Pi Agent Event Types (mapped from @earendil-works/pi-coding-agent)
+// AGENT Event Types (from @earendil-works/pi-agent-core agent.subscribe())
 // ============================================================================
 
 export type AgentEvent =
@@ -145,4 +145,16 @@ export interface MessageDeltaUIEvent {
 export interface MessageEndUIEvent {
   type: 'message_end';
   message: any;
+}
+
+// ============================================================================
+// Tool Types
+// ============================================================================
+
+export interface ToolResponse {
+  success: boolean;
+  tool: string;
+  result?: string;
+  error?: string;
+  timestamp: string;
 }

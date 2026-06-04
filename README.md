@@ -28,18 +28,34 @@ const DEEPSEEK_API_KEY = 'your-deepseek-api-key-here'
 
 ### Start Development Servers
 
-**Terminal 1 - Start Agent Server:**
+**Using ops.sh script (recommended):**
 ```bash
-cd apps/agent-server
-pnpm dev
-# Server runs on http://localhost:4000
+# Start all services (default: agent on 4000, web on 3002)
+./bin/ops.sh start
+
+# Start with custom ports
+./bin/ops.sh --port 3000 start  # agent:3000, web:3001
+
+# Check status
+./bin/ops.sh status
+
+# View logs
+./bin/ops.sh logs agent
+./bin/ops.sh logs -f web  # Follow web UI logs
+
+# Stop all services
+./bin/ops.sh stop
 ```
 
-**Terminal 2 - Start Web UI:**
+**Manual startup (separate terminals):**
 ```bash
+# Terminal 1 - Agent Server
+cd apps/agent-server
+pnpm dev  # Runs on http://localhost:4000
+
+# Terminal 2 - Web UI
 cd apps/web-ui
-pnpm dev
-# UI runs on http://localhost:3002 (auto-opens in browser)
+pnpm dev  # Runs on http://localhost:3002
 ```
 
 ### Usage
@@ -88,7 +104,7 @@ ohmyagent/
 - **Auth**: Supabase Auth (OAuth, JWT)
 
 ### Agent Engine ⭐
-- **Core**: Pi Agent Framework (`@earendil-works/pi-agent-core`)
+- **Core**: AGENT Framework (`@earendil-works/pi-agent-core`)
 - **Subagent**: `nicobailon/pi-subagents`
 - **Skills**: Agent Skills standard (max 30 per session)
 - **SOUL**: Multi-level system prompts (global/project/session)
@@ -127,7 +143,7 @@ ohmyagent/
 └─────────────────────────────────────────────┘
                     ↓
 ┌─────────────────────────────────────────────┐
-│            Pi Agent Engine                   │
+│            AGENT Engine                   │
 │  - Dynamic Skill Loading                     │
 │  - Subagent System                           │
 │  - Multi-Provider Support                    │

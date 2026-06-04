@@ -1,20 +1,20 @@
-# PI Agent Integration - P0 MVP Planning
+# AGENT Integration - P0 MVP Planning
 
 ## Branch: feat/pi-agent-integration
 
 ### P0 Requirements (from docs/mvp_requirements.md)
 
 #### ✅ Completed
-- [x] UI layer for Pi Agent integration
+- [x] UI layer for AGENT integration
 - [x] ChatGPT-style layout (navbar, sidebar, content area)
-- [x] Basic chat flow (user message → PI Agent → display response)
+- [x] Basic chat flow (user message → AGENT → display response)
 - [x] Markdown rendering support
 - [x] Table support (remark-gfm)
 
 #### 🔄 In Progress
 - [ ] **API Integration** - Needs completion
   - [ ] Set up ANTHROPIC_API_KEY environment variable
-  - [ ] Configure Pi Agent model (~/.pi/agent/models.json)
+  - [ ] Configure AGENT model (~/.pi/agent/models.json)
   - [ ] Test actual LLM responses
 
 - [ ] **Session Management** - Basic implementation needed
@@ -64,15 +64,15 @@
 ### Technical Notes
 
 **Files Modified:**
-- `apps/agent-server/src/pi-agent.ts` - Pi Agent integration
-- `apps/agent-server/src/pi-extension.ts` - Event capture
+- `apps/agent-server/src/pi-agent.ts` - AGENT integration
+- `apps/agent-server/src/pi-agent.ts` - Event capture (via `agent.subscribe()`)
 - `apps/agent-server/src/index.ts` - SSE streaming
 - `apps/web-ui/src/app/page.tsx` - Chat interface
 - `apps/web-ui/src/components/*.tsx` - Layout components
 - `apps/web-ui/src/app/globals.css` - Styling
 
 **Architecture:**
-- Uses Pi Agent's `Agent` API (not createAgentSession)
+- Uses AGENT's `Agent` API (not createAgentSession)
 - SSE for real-time event streaming
 - Event-driven architecture (tool_execution, message, turn events)
 - ChatGPT-style layout pattern

@@ -685,7 +685,7 @@ curl https://your-app.railway.app/health
 ### 相关技术
 - [BullMQ 文档](https://docs.bullmq.io/)
 - [Supabase 实时订阅](https://supabase.com/docs/guides/realtime)
-- [Pi Agent Framework](https://github.com/earendil-works/pi)
+- [AGENT Framework](https://github.com/earendil-works/pi)
 - [nicobailon/pi-subagents](https://github.com/nicobailon/pi-subagents)
 
 ---

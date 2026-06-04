@@ -21,6 +21,12 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# OhMyAgent runtime
+.pids/
+.logs/
+playwright-report/
+test-results/
+
 # IDE
 .vscode/
 .idea/
@@ -34,3 +40,4 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+.env

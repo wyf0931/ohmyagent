@@ -24,7 +24,7 @@ ai-agent-platform/
 │   │   │   └── index.ts
 │   │   └── package.json
 │   │
-│   └── agent-engine/        # Pi Agent Engine 服务
+│   └── agent-engine/        # AGENT Engine 服务
 │       ├── src/
 │       │   ├── agent/
 │       │   │   ├── PiAgentWrapper.ts
@@ -909,4 +909,4 @@ describe('InstancePoolManager', () => {
 - [Railway CLI 完整命令参考](https://docs.railway.com/reference/cli)
 - [BullMQ 队列管理最佳实践](https://docs.bullmq.io/bullmq/patterns)
 - [Supabase 实时订阅实现](https://supabase.com/docs/guides/realtime)
-- [Pi Agent Core 使用文档](https://pi.dev/docs)
+- [AGENT Core 使用文档](https://pi.dev/docs)

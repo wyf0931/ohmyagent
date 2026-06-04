@@ -180,7 +180,7 @@
 
 ---
 
-### 5. Pi Agent 基础集成
+### 5. AGENT 基础集成
 
 #### 5.1 安装 Pi 核心包
 ```bash
@@ -386,7 +386,7 @@ pnpm add @earendil-works/pi-agent-core @earendil-works/pi-ai
 - Day 5: 基础 Web UI 框架
 
 ### Week 2: 核心功能 (P0)
-- Day 1-2: Pi Agent 集成
+- Day 1-2: AGENT 集成
 - Day 3-4: API 路由 + 聊天流程
 - Day 5: 端到端测试
 

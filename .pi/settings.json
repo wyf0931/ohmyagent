@@ -1,0 +1,8 @@
+{
+  "skills": [
+    "~/.pi/agent/skills/hackernews-hub",
+    "~/.pi/agent/skills/reddit-hub",
+    "~/.pi/agent/skills/playwright-cli",
+    "~/.pi/agent/skills/frontend-design"
+  ]
+}

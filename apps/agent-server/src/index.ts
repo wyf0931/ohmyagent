@@ -1,9 +1,12 @@
-// Agent Server with Pi Agent integration and SSE streaming
+// Agent Server with AGENT integration and SSE streaming
+// Load .env FIRST and override any existing env vars
+import dotenv from 'dotenv'
+dotenv.config({ override: true })
 
 import express from 'express'
 import cors from 'cors'
 import type { Message } from '@ohmyagent/shared'
-import { processMessage, subscribeToEvents, dispose } from './pi-agent'
+import { initializeAgent, processMessage, subscribeToEvents, dispose } from './pi-agent'
 
 const app = express()
 const PORT = process.env.PORT || 4000
@@ -73,16 +76,16 @@ app.get('/api/events', async (req, res) => {
 
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, conversationHistory = [] } = req.body
+    const { message, newSession = false } = req.body
 
-    console.log('[API] Received chat request:', { message, historyLength: conversationHistory.length })
+    console.log('[API] Received chat request:', { message, newSession })
 
     if (!message) {
       return res.status(400).json({ error: 'Message is required' })
     }
 
-    // Process message with Pi Agent (streams events via SSE)
-    const result = await processMessage(message, conversationHistory)
+    // Process message with AGENT (agent maintains its own conversation state)
+    const result = await processMessage(message, newSession)
 
     console.log('[API] Message processed, session:', result.sessionId)
 
@@ -120,11 +123,17 @@ process.on('SIGINT', () => {
 // Start Server
 // ============================================================================
 
-console.log(`Agent server starting on port ${PORT}...`)
-app.listen(PORT, () => {
-  console.log(`✓ Agent server ready on http://localhost:${PORT}`)
-  console.log(`  - POST /api/chat - Send message`)
-  console.log(`  - GET /api/events - SSE event stream`)
-})
+async function start() {
+  await initializeAgent()
+
+  console.log(`Agent server starting on port ${PORT}...`)
+  app.listen(PORT, () => {
+    console.log(`✓ Agent server ready on http://localhost:${PORT}`)
+    console.log(`  - POST /api/chat - Send message`)
+    console.log(`  - GET /api/events - SSE event stream`)
+  })
+}
+
+start()
 
 export { app }

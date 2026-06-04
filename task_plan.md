@@ -99,7 +99,7 @@ CREATE TABLE messages (
 
 ---
 
-## Phase 5: Pi Agent Integration
+## Phase 5: AGENT Integration
 **Status:** `complete`
 
 ### Tasks

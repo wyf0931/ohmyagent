@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-OhMyAgent is an AI Agent platform with dynamic skill injection, multi-user session management, and elastic instance pooling. The platform uses **Pi Agent Framework** as the base engine (not Claude Agent SDK) for multi-model support and TypeScript-native implementation.
+OhMyAgent is an AI Agent platform with dynamic skill injection, multi-user session management, and elastic instance pooling. The platform uses **AGENT Framework** as the base engine (not Claude Agent SDK) for multi-model support and TypeScript-native implementation.
 
 ### Architecture Layers
 
@@ -30,7 +30,7 @@ See `docs/mvp_requirements.md` for the prioritized feature list and roadmap.
 apps/
   ├── web-ui/          # Next.js frontend (App Router, Tailwind)
   ├── pool-manager/    # Instance pool management (Express + BullMQ)
-  └── agent-engine/    # Pi Agent service
+  └── agent-engine/    # AGENT service
 packages/
   ├── shared/          # Shared types and utilities
   └── db/              # Database migrations
@@ -69,7 +69,7 @@ railway status            # Check service status
 
 ## Key Concepts
 
-### Pi Agent Framework
+### AGENT Framework
 
 **Agent Skills Standard**: Skills are Markdown files with structured steps, loaded on-demand (max 30 per session).
 

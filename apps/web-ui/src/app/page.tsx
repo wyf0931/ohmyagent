@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import type { Message, ChatState } from '@ohmyagent/shared'
+import type { ProgressStep } from '@/components/ChatArea'
 import Navbar from '@/components/Navbar'
 import Sidebar from '@/components/Sidebar'
 import ChatArea from '@/components/ChatArea'
@@ -20,7 +21,7 @@ export default function HomePage() {
 
   const [input, setInput] = useState('')
   const [currentResponse, setCurrentResponse] = useState('')
-  const [activeTools, setActiveTools] = useState<Map<string, any>>(new Map())
+  const [progressSteps, setProgressSteps] = useState<ProgressStep[]>([])
   const [turnIndex, setTurnIndex] = useState(0)
   const [isConnected, setIsConnected] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
@@ -67,112 +68,207 @@ export default function HomePage() {
 
           case 'agent_start':
             setChatState((prev) => ({ ...prev, isLoading: true }))
-            setActiveTools(new Map())
+            setProgressSteps([{
+              id: `agent-start-${Date.now()}`,
+              type: 'thinking',
+              label: 'Starting',
+              detail: 'Connecting to AGENT...',
+              status: 'running',
+              timestamp: Date.now(),
+            }])
             setCurrentResponse('')
             currentResponseRef.current = ''
             break
 
           case 'turn_start':
             setTurnIndex(data.turnIndex)
-            break
-
-          case 'tool_execution_start':
-            setActiveTools((prev) => {
-              const next = new Map(prev)
-              next.set(data.toolCallId, {
-                name: data.toolName,
-                args: data.args,
-                status: 'running',
-                output: '',
-              })
-              return next
+            // Mark any prior running steps as done, then add turn step
+            setProgressSteps((prev) => {
+              const updated = prev.map(s =>
+                s.status === 'running' ? { ...s, status: 'complete' as const } : s
+              )
+              return [
+                ...updated,
+                {
+                  id: `turn-${data.turnIndex}`,
+                  type: 'thinking',
+                  label: `Turn ${data.turnIndex}`,
+                  detail: 'Processing your request...',
+                  status: 'running',
+                  timestamp: Date.now(),
+                },
+              ]
             })
             break
+
+          case 'tool_execution_start': {
+            const stepId = `tool-start-${data.toolCallId}`
+            const argsStr = data.args
+              ? Object.entries(data.args)
+                  .map(([k, v]) => `${k}=${typeof v === 'string' ? `"${v}"` : JSON.stringify(v)}`)
+                  .join(', ')
+              : ''
+
+            // Mark last thinking step as complete if exists
+            setProgressSteps((prev) => {
+              const updated = [...prev]
+              // Find last thinking step (reverse find to support older JS environments)
+              for (let i = updated.length - 1; i >= 0; i--) {
+                if (updated[i].type === 'thinking' && updated[i].status === 'running') {
+                  updated[i] = { ...updated[i], status: 'complete' }
+                  break
+                }
+              }
+              return updated
+            })
+
+            setProgressSteps((prev) => [
+              ...prev,
+              {
+                id: stepId,
+                type: 'tool_call',
+                label: `Calling ${data.toolName}`,
+                detail: `${data.toolName}(${argsStr})`,
+                status: 'running',
+                timestamp: Date.now(),
+              },
+            ])
+            break
+          }
 
           case 'tool_execution_update':
-            setActiveTools((prev) => {
-              const next = new Map(prev)
-              const tool = next.get(data.toolCallId)
-              if (tool) {
-                // Format partial result for display
-                let displayOutput = ''
-                if (data.partialResult) {
-                  if (typeof data.partialResult === 'string') {
-                    displayOutput = data.partialResult
-                  } else if (data.partialResult.content) {
-                    // Handle Pi's result format
-                    displayOutput = data.partialResult.content
-                      .map((c: any) => c.type === 'text' ? c.text : '')
-                      .join('')
-                  } else {
-                    displayOutput = JSON.stringify(data.partialResult)
+            // Update tool step with partial result
+            setProgressSteps((prev) =>
+              prev.map((s) => {
+                if (s.id === `tool-start-${data.toolCallId}`) {
+                  let detail = data.partialResult
+                  if (detail && typeof detail === 'object') {
+                    if (detail.content && Array.isArray(detail.content)) {
+                      detail = detail.content.map((c: any) => c.text || '').join('')
+                    } else {
+                      detail = JSON.stringify(detail).substring(0, 200)
+                    }
                   }
+                  return { ...s, detail: String(detail || '').substring(0, 500) }
                 }
-                next.set(data.toolCallId, {
-                  ...tool,
-                  output: displayOutput,
-                })
+                return s
+              })
+            )
+            break
+
+          case 'tool_execution_end': {
+            const resultKey = `tool-end-${data.toolCallId}`
+            const startKey = `tool-start-${data.toolCallId}`
+
+            // Mark tool start as complete
+            setProgressSteps((prev) =>
+              prev.map((s) => {
+                if (s.id === startKey) {
+                  return { ...s, status: data.isError ? 'error' as const : 'complete' as const }
+                }
+                return s
+              })
+            )
+
+            // Extract result summary
+            let resultDetail = ''
+            if (data.result) {
+              if (typeof data.result === 'string') {
+                resultDetail = data.result.substring(0, 300)
+              } else if (data.result.details) {
+                resultDetail = `Found ${data.result.details.resultCount || '?'} results from ${data.result.details.provider || 'search'}`
+              } else {
+                resultDetail = JSON.stringify(data.result).substring(0, 300)
               }
-              return next
+            }
+
+            // Add tool result step
+            setProgressSteps((prev) => [
+              ...prev,
+              {
+                id: resultKey,
+                type: 'tool_result',
+                label: `${data.toolName} completed`,
+                detail: data.isError ? `Error: ${resultDetail}` : resultDetail,
+                status: data.isError ? 'error' : 'complete',
+                timestamp: Date.now(),
+              },
+            ])
+
+            // Add thinking step after tool result
+            setProgressSteps((prev) => [
+              ...prev,
+              {
+                id: `thinking-after-${data.toolCallId}`,
+                type: 'thinking',
+                label: 'Thinking',
+                detail: 'Analyzing results...',
+                status: 'running',
+                timestamp: Date.now(),
+              },
+            ])
+            break
+          }
+
+          case 'message_start':
+            console.log('[Frontend] message_start received')
+            currentResponseRef.current = ''
+            setCurrentResponse('')
+            // Mark thinking steps as complete, add response step
+            setProgressSteps((prev) => {
+              const updated = prev.map((s) =>
+                s.type === 'thinking' && s.status === 'running'
+                  ? { ...s, status: 'complete' as const }
+                  : s
+              )
+              return [
+                ...updated,
+                {
+                  id: `response-${Date.now()}`,
+                  type: 'response',
+                  label: 'Generating response',
+                  detail: '',
+                  status: 'running',
+                  timestamp: Date.now(),
+                },
+              ]
             })
             break
 
-          case 'tool_execution_end':
-            setActiveTools((prev) => {
-              const next = new Map(prev)
-              const tool = next.get(data.toolCallId)
-              if (tool) {
-                // On completion, show brief status instead of full result
-                next.set(data.toolCallId, {
-                  ...tool,
-                  status: data.isError ? 'error' : 'complete',
-                  output: '', // Clear output on completion to avoid clutter
-                  result: data.result,
-                })
-              }
-              return next
-            })
-            break
-
-          case 'message_update':
-            console.log('[Frontend] message_update received:', JSON.stringify(data).slice(0, 300))
-            // Try to extract content from various possible formats
-            let deltaText = ''
-            if (data.assistantMessageEvent?.type === 'text_delta' && data.assistantMessageEvent.delta) {
-              deltaText = data.assistantMessageEvent.delta
-            } else if (data.message?.content) {
-              deltaText = data.message.content
-            } else if (typeof data === 'string') {
-              deltaText = data
-            }
-
-            if (deltaText) {
-              const newResponse = currentResponseRef.current + deltaText
-              currentResponseRef.current = newResponse
-              setCurrentResponse(newResponse)
-              console.log('[Frontend] Updated currentResponse, length:', newResponse.length)
-            }
-            break
-
-          case 'message_end':
-            console.log('[Frontend] message_end received:', JSON.stringify(data).slice(0, 300))
-            console.log('[Frontend] currentResponse length:', currentResponseRef.current.length)
-
-            // Extract message content from Pi Agent format: content: [{ type: 'text', text: '...' }]
-            let messageContent = currentResponseRef.current
+          case 'message_update': {
+            // Extract content from message_update event
+            let newText = ''
             if (data.message?.content) {
-              if (typeof data.message.content === 'string') {
-                messageContent = data.message.content
-              } else if (Array.isArray(data.message.content)) {
-                // Pi Agent format: content is an array of content blocks
-                messageContent = data.message.content
+              if (Array.isArray(data.message.content)) {
+                newText = data.message.content
                   .filter((c: any) => c.type === 'text')
                   .map((c: any) => c.text)
                   .join('')
+              } else if (typeof data.message.content === 'string') {
+                newText = data.message.content
               }
             }
 
-            // Add message if there's any content
+            if (newText) {
+              currentResponseRef.current = newText
+              setCurrentResponse(newText)
+            }
+            break
+          }
+
+          case 'message_end': {
+            console.log('[Frontend] message_end received')
+            const messageContent = currentResponseRef.current
+
+            // Mark response step as complete
+            setProgressSteps((prev) =>
+              prev.map((s) =>
+                s.type === 'response' && s.status === 'running'
+                  ? { ...s, status: 'complete' as const }
+                  : s
+              )
+            )
+
             if (messageContent) {
               setChatState((prev) => ({
                 ...prev,
@@ -192,19 +288,12 @@ export default function HomePage() {
               console.log('[Frontend] No message content found')
               setChatState((prev) => ({ ...prev, isLoading: false }))
             }
-            // Clear currentResponse to prevent duplicate display
             setCurrentResponse('')
             currentResponseRef.current = ''
+            // Clear inline steps — response is now in the message bubble above
+            setProgressSteps([])
             break
-
-          case 'message_start':
-            console.log('[Frontend] message_start received:', JSON.stringify(data).slice(0, 300))
-            // Initialize current response for this message
-            if (data.message?.content) {
-              currentResponseRef.current = data.message.content
-              setCurrentResponse(data.message.content)
-            }
-            break
+          }
 
           case 'turn_end':
             console.log('[Frontend] turn_end received')
@@ -213,10 +302,10 @@ export default function HomePage() {
           case 'agent_end':
             console.log('[Frontend] agent_end received')
             setChatState((prev) => ({ ...prev, isLoading: false }))
+            // Keep progressSteps visible — cleared on next agent_start
             break
 
           default:
-            // Log any unknown event types for debugging
             console.log('[Frontend] Unknown event type:', data.type, JSON.stringify(data).slice(0, 200))
             break
         }
@@ -257,13 +346,16 @@ export default function HomePage() {
     const messageToSend = input
     setInput('')
 
+    console.log('[handleSend] sending:', messageToSend)
+
+    // AGENT maintains its own conversation state — no need to send history
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: messageToSend,
-          conversationHistory: chatState.messages,
+          newSession: chatState.messages.length === 0,
         }),
       })
 
@@ -291,14 +383,12 @@ export default function HomePage() {
     })
     setCurrentResponse('')
     currentResponseRef.current = ''
-    setActiveTools(new Map())
+    setProgressSteps([])
     setTurnIndex(0)
   }
 
   const handleSelectSession = (sessionId: string) => {
     setActiveSessionId(sessionId)
-    // In real implementation, load session messages from API
-    // For now, just clear the current state
     setChatState({
       messages: [],
       isLoading: false,
@@ -307,18 +397,14 @@ export default function HomePage() {
   }
 
   const handleLoadMore = () => {
-    // Placeholder for loading more sessions
     console.log('Load more sessions')
   }
 
   return (
     <div className="app-layout">
-      {/* Navbar */}
       <Navbar darkMode={darkMode} onDarkModeToggle={() => setDarkMode(!darkMode)} />
 
-      {/* Main Content Area */}
       <div className="app-main">
-        {/* Sidebar */}
         {sidebarOpen && (
           <Sidebar
             sessions={sessions}
@@ -330,7 +416,6 @@ export default function HomePage() {
           />
         )}
 
-        {/* Chat Area */}
         <ChatArea
           messages={chatState.messages}
           currentResponse={currentResponse}
@@ -338,7 +423,7 @@ export default function HomePage() {
           input={input}
           onInputChange={setInput}
           onSend={handleSend}
-          activeTools={activeTools}
+          progressSteps={progressSteps}
           turnIndex={turnIndex}
           isConnected={isConnected}
         />
