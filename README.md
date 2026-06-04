@@ -2,6 +2,75 @@
 
 An AI Agent platform with dynamic skill injection, multi-user session management, and elastic instance pooling.
 
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 20+
+- pnpm
+- DeepSeek API key (get from [platform.deepseek.com](https://platform.deepseek.com))
+
+### Installation
+```bash
+# Install dependencies
+pnpm install
+
+# Or use npm
+npm install
+```
+
+### Configuration
+
+Set up your DeepSeek API key in `apps/agent-server/src/pi-agent.ts`:
+
+```typescript
+const DEEPSEEK_API_KEY = 'your-deepseek-api-key-here'
+```
+
+### Start Development Servers
+
+**Terminal 1 - Start Agent Server:**
+```bash
+cd apps/agent-server
+pnpm dev
+# Server runs on http://localhost:4000
+```
+
+**Terminal 2 - Start Web UI:**
+```bash
+cd apps/web-ui
+pnpm dev
+# UI runs on http://localhost:3002 (auto-opens in browser)
+```
+
+### Usage
+1. Open http://localhost:3002 in your browser
+2. Type a message in the input box
+3. Click "Send" or press Enter
+4. AI responses will appear in real-time
+
+### Project Structure
+```
+ohmyagent/
+├── apps/
+│   ├── web-ui/          # Next.js frontend (port 3002)
+│   ├── agent-server/    # Express backend (port 4000)
+│   └── pool-manager/    # Instance pool (post-MVP)
+├── packages/
+│   ├── shared/          # Shared types
+│   └── db/              # Database schemas
+├── docs/                # Documentation
+└── PLANNING.md          # MVP planning tracker
+```
+
+### Current Status ✅
+- **P0 MVP Complete**: Basic chat flow with real AI responses working
+- **LLM Integration**: DeepSeek API (direct integration)
+- **UI**: ChatGPT-style interface with Markdown support
+- **Events**: SSE streaming for real-time updates
+- **Testing**: Manual testing with Chrome DevTools MCP
+
+### Development Commands
+
 ## Tech Stack
 
 ### Frontend
