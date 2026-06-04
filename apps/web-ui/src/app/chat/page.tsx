@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
+import ChatSessionContent from './[sessionId]/ChatSessionContent'
 
 export default async function ChatPage() {
   const supabase = createClient()
@@ -9,20 +10,27 @@ export default async function ChatPage() {
     redirect('/login')
   }
 
-  // Create a new session and redirect to it
-  const { data: session, error } = await supabase
+  // Load most recent session — don't create a new one
+  const { data: recentSession } = await supabase
     .from('sessions')
-    .insert({
-      user_id: user.id,
-      title: 'New Chat',
-    })
-    .select()
-    .single()
+    .select('*')
+    .eq('user_id', user.id)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-  if (error || !session) {
-    console.error('Failed to create session:', error)
-    redirect('/login')
+  if (recentSession) {
+    redirect(`/chat/${recentSession.id}`)
   }
 
-  redirect(`/chat/${session.id}`)
+  // No sessions yet — render empty chat, session created on first send
+  return (
+    <ChatSessionContent
+      sessionId=""
+      sessionTitle={null}
+      userId={user.id}
+      userEmail={user.email}
+      initialMessages={[]}
+    />
+  )
 }

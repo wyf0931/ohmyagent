@@ -21,7 +21,7 @@ export default function Navbar({ darkMode, onDarkModeToggle, userEmail }: Navbar
   }
 
   return (
-    <nav className="h-14 border-b flex items-center justify-between px-4 bg-canvas">
+    <nav className="h-14 border-b flex items-center justify-between px-4 bg-surface-card">
       <div className="flex items-center gap-2">
         <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
           <span className="text-on-primary font-bold text-sm">Ω</span>

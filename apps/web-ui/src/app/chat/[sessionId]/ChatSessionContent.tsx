@@ -145,12 +145,15 @@ export default function ChatSessionContent({
   const progressStepsRef = useRef<ProgressStep[]>([])
   const hasRestoredRef = useRef(initialMessages.length === 0)
   const pendingToolCalls = useRef<Set<string>>(new Set())
+  const sessionIdRef = useRef(sessionId)
 
-  // Save a message to DB
+  // Save a message to DB (no-op when session hasn't been created yet)
   const saveMessage = useCallback(
     async (type: string, role: string, content: string, metadata?: Record<string, any>) => {
+      const sid = sessionIdRef.current
+      if (!sid) return
       try {
-        await fetch(`/api/sessions/${sessionId}/messages`, {
+        await fetch(`/api/sessions/${sid}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type, role, content, metadata: metadata || {} }),
@@ -159,14 +162,16 @@ export default function ChatSessionContent({
         console.error('Failed to save message:', err)
       }
     },
-    [sessionId]
+    [] // uses ref, no deps
   )
 
   // Update session title
   const updateSessionTitle = useCallback(
     async (title: string) => {
+      const sid = sessionIdRef.current
+      if (!sid) return
       try {
-        await fetch(`/api/sessions/${sessionId}`, {
+        await fetch(`/api/sessions/${sid}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title }),
@@ -176,12 +181,13 @@ export default function ChatSessionContent({
         console.error('Failed to update title:', err)
       }
     },
-    [sessionId]
+    []
   )
 
   // Restore agent state from history
   const restoreAgentState = useCallback(async () => {
-    if (hasRestoredRef.current) return
+    const sid = sessionIdRef.current
+    if (!sid || hasRestoredRef.current) return
     setRestoringSession(true)
 
     try {
@@ -193,7 +199,7 @@ export default function ChatSessionContent({
         await fetch('http://localhost:4000/api/chat/restore', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: userMessages, sessionId }),
+          body: JSON.stringify({ messages: userMessages, sessionId: sid }),
         })
       }
 
@@ -204,7 +210,7 @@ export default function ChatSessionContent({
     } finally {
       setRestoringSession(false)
     }
-  }, [chatState.messages, sessionId])
+  }, [chatState.messages])
 
   // Fetch sessions for sidebar
   const fetchSessions = useCallback(async () => {
@@ -458,7 +464,7 @@ export default function ChatSessionContent({
                   ...prev.messages,
                   {
                     id: (Date.now() + 1).toString(),
-                    sessionId: sessionId,
+                    sessionId: sessionIdRef.current,
                     role: 'assistant' as const,
                     content: textContent,
                     createdAt: new Date(),
@@ -499,17 +505,37 @@ export default function ChatSessionContent({
       eventSource.close()
       eventSourceRef.current = null
     }
-  }, [sessionId, saveMessage])
+  }, [saveMessage])
 
   const handleSend = async () => {
     if (!input.trim() || restoringSession) return
+
+    const messageContent = input
+
+    // Lazy session creation: only create on first send
+    if (!sessionIdRef.current) {
+      try {
+        const res = await fetch('/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: messageContent.substring(0, 50) }),
+        })
+        if (!res.ok) throw new Error('Failed to create session')
+        const newSession = await res.json()
+        sessionIdRef.current = newSession.id
+        setSessionTitle(messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : ''))
+        // Update URL without remounting — /chat and /chat/[id] are different routes
+        window.history.replaceState(null, '', `/chat/${newSession.id}`)
+      } catch (err) {
+        console.error('Failed to create session:', err)
+        return
+      }
+    }
 
     // Auto-restore agent state on first message if session has history
     if (!hasRestoredRef.current) {
       await restoreAgentState()
     }
-
-    const messageContent = input
 
     // Auto-title: use first user message as session title
     const isFirstUserMessage = chatState.messages.filter(m => m.role === 'user').length === 0
@@ -520,7 +546,7 @@ export default function ChatSessionContent({
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      sessionId: sessionId,
+      sessionId: sessionIdRef.current,
       role: 'user',
       content: messageContent,
       createdAt: new Date(),
@@ -538,13 +564,15 @@ export default function ChatSessionContent({
     currentResponseRef.current = ''
     setInput('')
 
+    const sid = sessionIdRef.current
+
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: messageContent,
-          sessionId: sessionId,
+          sessionId: sid,
           newSession: initialMessages.length === 0 && chatState.messages.length === 0,
         }),
       })
@@ -584,7 +612,7 @@ export default function ChatSessionContent({
       setSessions((prev) => prev.filter((s) => s.id !== targetId))
       triggerToast('Session deleted')
 
-      if (targetId === sessionId) {
+      if (targetId === sessionIdRef.current) {
         router.push('/chat')
       }
     } catch (err) {
@@ -620,7 +648,7 @@ export default function ChatSessionContent({
         {sidebarOpen && (
           <Sidebar
             sessions={sessions}
-            activeSessionId={sessionId}
+            activeSessionId={sessionIdRef.current || null}
             onNewChat={handleNewChat}
             onSelectSession={handleSelectSession}
             onDeleteSession={handleDeleteSession}

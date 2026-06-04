@@ -35,7 +35,7 @@ export default function Sidebar({
       <div className="sidebar-header">
         <button
           onClick={onNewChat}
-          className="w-full px-4 py-3 rounded-lg bg-primary hover:bg-primary-active text-on-primary font-medium transition-colors flex items-center justify-center gap-2"
+          className="w-full px-4 py-3 rounded-lg border border-primary text-primary hover:bg-primary hover:text-on-primary font-medium transition-colors flex items-center justify-center gap-2"
         >
           <span className="text-lg">+</span>
           <span>New Chat</span>
@@ -58,10 +58,10 @@ export default function Sidebar({
               >
                 <button
                   onClick={() => onSelectSession(session.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors border-l-2 ${
                     activeSessionId === session.id
-                      ? 'bg-primary text-on-primary'
-                      : 'hover:bg-surface-soft text-body'
+                      ? 'bg-surface-cream-strong text-ink border-primary'
+                      : 'hover:bg-surface-soft text-body border-transparent'
                   }`}
                 >
                   <div className="truncate text-sm font-medium pr-6">{session.title}</div>

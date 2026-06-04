@@ -16,6 +16,8 @@
   --color-canvas: #faf9f5;
   --color-surface-soft: #f5f0e8;
   --color-surface-card: #efe9de;
+  --color-surface-cream-strong: #e8e0d2;
+  --color-primary-light: #f5ede8;
   --color-surface-dark: #181715;
   --color-surface-dark-elevated: #252320;
   --color-hairline: #e6dfd8;
@@ -42,7 +44,10 @@
 /* Dark mode overrides */
 .dark {
   --color-canvas: #181715;
+  --color-surface-soft: #1f1e1b;
   --color-surface-card: #252320;
+  --color-surface-cream-strong: #2a2825;
+  --color-primary-light: #2a2220;
   --color-ink: #faf9f5;
   --color-body: #a09d96;
   --color-muted: #6c6a64;
@@ -84,7 +89,7 @@ body {
 /* Sidebar */
 .sidebar {
   width: 260px;
-  background: var(--color-surface-card);
+  background: var(--color-canvas);
   border-right: 1px solid var(--color-hairline);
   display: flex;
   flex-direction: column;

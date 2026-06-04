@@ -230,11 +230,7 @@ export default function ChatArea({
             )}
 
             <div
-              className={`w-full p-4 rounded-lg relative ${
-                message.role === 'user'
-                  ? 'bg-primary text-on-primary ml-auto'
-                  : 'bg-surface-card text-ink'
-              }`}
+              className="w-full p-4 rounded-lg relative bg-surface-card text-ink"
             >
               {message.role === 'assistant' ? (
                 <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>

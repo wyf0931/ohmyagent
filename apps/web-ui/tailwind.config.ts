@@ -20,6 +20,8 @@ const config: Config = {
         canvas: 'var(--color-canvas)',
         'surface-soft': 'var(--color-surface-soft)',
         'surface-card': 'var(--color-surface-card)',
+        'surface-cream-strong': 'var(--color-surface-cream-strong)',
+        'primary-light': 'var(--color-primary-light)',
         'surface-dark': 'var(--color-surface-dark)',
         'surface-dark-elevated': 'var(--color-surface-dark-elevated)',
         hairline: 'var(--color-hairline)',
