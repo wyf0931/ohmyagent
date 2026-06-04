@@ -172,11 +172,20 @@ export function subscribeToEvents(callback: (event: any) => void): () => void {
 }
 
 /**
- * Restore agent state by replaying conversation history.
- * Resets the agent, then replays each historical message to rebuild _state.messages.
+ * Restore agent state by directly injecting conversation history.
+ *
+ * Converts DB-format messages (user_message, assistant_message, tool_call, tool_result)
+ * into the Agent's internal AgentMessage format and sets them directly via
+ * `agent.state.messages`. No replay, no LLM calls, no broadcast events.
  */
 export async function restoreSession(
-  messages: Array<{ role: string; content: string }>,
+  messages: Array<{
+    role: string
+    content: string
+    type: string
+    metadata?: Record<string, any>
+    created_at?: string
+  }>,
   sessionId: string
 ): Promise<void> {
   if (!agent) {
@@ -184,15 +193,81 @@ export async function restoreSession(
   }
 
   agent.reset()
-  console.log(`[PiAgent] Restoring session ${sessionId} with ${messages.length} messages`)
+  console.log(`[PiAgent] Restoring session ${sessionId} with ${messages.length} messages (state injection)`)
 
-  for (const msg of messages) {
-    if (msg.role === 'user') {
-      await agent.prompt(msg.content)
+  const agentMessages: any[] = []
+  let i = 0
+
+  while (i < messages.length) {
+    const msg = messages[i]
+
+    switch (msg.type) {
+      case 'user_message':
+        agentMessages.push({
+          role: 'user',
+          content: msg.content,
+          timestamp: msg.created_at ? new Date(msg.created_at).getTime() : Date.now(),
+        })
+        i++
+        break
+
+      case 'assistant_message': {
+        // Build content blocks: text + any tool_call messages that follow
+        const contentBlocks: any[] = [
+          { type: 'text', text: msg.content },
+        ]
+
+        // Collect immediately following tool_call records
+        i++
+        while (i < messages.length && messages[i].type === 'tool_call') {
+          const tc = messages[i]
+          if (tc.metadata?.toolCallId) {
+            contentBlocks.push({
+              type: 'toolCall',
+              id: tc.metadata.toolCallId,
+              name: tc.metadata.toolName || 'unknown',
+              arguments: tc.metadata.args || {},
+            })
+          }
+          i++
+        }
+
+        agentMessages.push({
+          role: 'assistant',
+          content: contentBlocks,
+          api: 'restored' as any,
+          provider: 'restored' as any,
+          model: 'restored',
+          usage: { input: 0, output: 0 },
+          stopReason: 'stop' as any,
+          timestamp: msg.created_at ? new Date(msg.created_at).getTime() : Date.now(),
+        })
+        break
+      }
+
+      case 'tool_result':
+        agentMessages.push({
+          role: 'toolResult',
+          toolCallId: msg.metadata?.toolCallId || '',
+          toolName: msg.metadata?.toolName || 'unknown',
+          content: [{ type: 'text', text: msg.content }],
+          isError: msg.metadata?.isError || false,
+          timestamp: msg.created_at ? new Date(msg.created_at).getTime() : Date.now(),
+        })
+        i++
+        break
+
+      default:
+        // Skip unknown types (e.g., bare tool_call records without a preceding assistant message)
+        i++
+        break
     }
   }
 
-  console.log(`[PiAgent] Session ${sessionId} restored successfully`)
+  // Direct state injection — no replay, no LLM calls, no events
+  agent.state.messages = agentMessages
+
+  console.log(`[PiAgent] Session ${sessionId} restored — ${agentMessages.length} AgentMessages injected`)
 }
 
 /**

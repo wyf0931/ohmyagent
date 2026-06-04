@@ -146,6 +146,7 @@ export default function ChatSessionContent({
   const hasRestoredRef = useRef(initialMessages.length === 0)
   const pendingToolCalls = useRef<Set<string>>(new Set())
   const sessionIdRef = useRef(sessionId)
+  const rawDbMessagesRef = useRef(initialMessages)
 
   // Save a message to DB (no-op when session hasn't been created yet)
   const saveMessage = useCallback(
@@ -184,22 +185,27 @@ export default function ChatSessionContent({
     []
   )
 
-  // Restore agent state from history
+  // Restore agent state from history using state injection (no replay)
   const restoreAgentState = useCallback(async () => {
     const sid = sessionIdRef.current
     if (!sid || hasRestoredRef.current) return
     setRestoringSession(true)
 
     try {
-      const userMessages = chatState.messages
-        .filter(m => m.role === 'user')
-        .map(m => ({ role: 'user', content: m.content }))
+      const rawMessages = rawDbMessagesRef.current
+      if (rawMessages.length > 0) {
+        const payload = rawMessages.map((m) => ({
+          type: m.type,
+          role: m.role,
+          content: m.content,
+          metadata: m.metadata,
+          created_at: m.created_at,
+        }))
 
-      if (userMessages.length > 0) {
         await fetch('http://localhost:4000/api/chat/restore', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: userMessages, sessionId: sid }),
+          body: JSON.stringify({ messages: payload, sessionId: sid }),
         })
       }
 
@@ -210,7 +216,7 @@ export default function ChatSessionContent({
     } finally {
       setRestoringSession(false)
     }
-  }, [chatState.messages])
+  }, [])
 
   // Fetch sessions for sidebar
   const fetchSessions = useCallback(async () => {
@@ -606,6 +612,7 @@ export default function ChatSessionContent({
 
     sessionIdRef.current = ''
     hasRestoredRef.current = true
+    rawDbMessagesRef.current = []
     currentResponseRef.current = ''
     progressStepsRef.current = []
     pendingToolCalls.current = new Set()
