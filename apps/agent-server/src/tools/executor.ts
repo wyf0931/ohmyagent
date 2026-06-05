@@ -6,6 +6,7 @@
  * tool integration post-MVP.
  */
 
+import type { AgentToolResult } from '@earendil-works/pi-agent-core'
 import { getEnabledTools } from './index'
 
 /**
@@ -31,7 +32,33 @@ export async function executeToolCall(
   }
 
   try {
-    return await tool.execute(args)
+    const result = await tool.execute(
+      'tool-call-' + Date.now(),
+      args,
+      new AbortController().signal,
+      () => {}
+    )
+
+    // Extract text content from the result
+    if (result.content && result.content.length > 0) {
+      const firstContent = result.content[0]
+      if (firstContent.type === 'text') {
+        return {
+          content: [{
+            type: 'text',
+            text: firstContent.text
+          }]
+        }
+      }
+    }
+
+    // Fallback for unexpected content types
+    return {
+      content: [{
+        type: 'text',
+        text: 'Tool executed but returned unexpected content format'
+      }]
+    }
   } catch (error) {
     return {
       content: [{
