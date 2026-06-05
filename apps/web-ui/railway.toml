@@ -1,0 +1,15 @@
+# Railway configuration for OhMyAgent Web UI
+[build]
+  build_command = "pnpm build"
+  watch_paths = ["src/**", "package.json"]
+
+[deploy]
+  healthcheck_path = "/health"
+  healthcheck_timeout = 300
+  restart_policy_type = "on-failure"
+  restart_policy_max_retries = 3
+
+# Environment variables to set in Railway Dashboard:
+# NEXT_PUBLIC_SUPABASE_URL
+# NEXT_PUBLIC_SUPABASE_ANON_KEY
+# AGENT_SERVER_URL (internal Railway URL for agent-server)

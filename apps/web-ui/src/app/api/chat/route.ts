@@ -18,19 +18,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
-    const response = await fetch(`${AGENT_SERVER_URL}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, sessionId, newSession }),
-    })
+    // In Railway production or when AGENT_SERVER_URL is set, call the agent-server
+    if (process.env.AGENT_SERVER_URL) {
+      const response = await fetch(`${AGENT_SERVER_URL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, sessionId, newSession }),
+      })
 
-    if (!response.ok) {
-      throw new Error(`Agent server responded with ${response.status}`)
+      if (!response.ok) {
+        throw new Error(`Agent server responded with ${response.status}`)
+      }
+
+      const data = await response.json()
+      return NextResponse.json(data)
     }
 
-    const data = await response.json()
-
-    return NextResponse.json(data)
+    // For local development or embedded mode, return a direct response
+    // This will be enhanced when we move the agent logic into Next.js
+    return NextResponse.json({
+      role: 'assistant',
+      content: 'Agent server not configured. Please set AGENT_SERVER_URL environment variable.',
+      sessionId: sessionId || 'local-session',
+      timestamp: new Date().toISOString(),
+    })
   } catch (error) {
     console.error('Chat API error:', error)
     return NextResponse.json(

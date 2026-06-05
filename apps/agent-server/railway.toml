@@ -1,0 +1,15 @@
+# Railway configuration for OhMyAgent Agent Server
+[build]
+  build_command = "pnpm build"
+  watch_paths = ["src/**", "package.json"]
+
+[deploy]
+  healthcheck_path = "/health"
+  healthcheck_timeout = 300
+  restart_policy_type = "on-failure"
+  restart_policy_max_retries = 3
+
+# Environment variables to set in Railway Dashboard:
+# QINIU_API_KEY
+# DEEPSEEK_API_KEY
+# PORT (Railway sets this automatically)
